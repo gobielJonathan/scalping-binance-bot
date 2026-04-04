@@ -9,7 +9,7 @@ import {
   MarketData
 } from '../types';
 import { ScalpingStrategy } from '../strategies/scalpingStrategy';
-import logger from './logger';
+import logger, { toLogError } from './logger';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -100,7 +100,7 @@ export class SignalAggregator {
           this.logger.debug(`Signal from ${strategyId} filtered out`, { signal });
         }
       } catch (error) {
-        this.logger.error(`Error generating signal from strategy ${strategyId}`, error);
+        this.logger.error(`Error generating signal from strategy ${strategyId}`, toLogError(error));
       }
     }
 

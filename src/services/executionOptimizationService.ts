@@ -8,7 +8,7 @@ import {
   TradePosition
 } from '../types';
 import { BinanceService } from './binanceService';
-import logger from './logger';
+import logger, { toLogError } from './logger';
 import config from '../config';
 
 /**
@@ -141,7 +141,7 @@ export class ExecutionOptimizationService {
     } catch (error) {
       const executionTime = Date.now() - startTime;
       
-      logger.error(`Order execution failed for ${orderRequest.symbol}:`, error);
+      logger.error(`Order execution failed for ${orderRequest.symbol}:`, toLogError(error));
       
       // Create error metrics
       const errorMetrics: OrderExecutionMetrics = {
@@ -199,7 +199,7 @@ export class ExecutionOptimizationService {
       return marketDepth;
       
     } catch (error) {
-      logger.error(`Failed to get market depth for ${symbol}:`, error);
+      logger.error(`Failed to get market depth for ${symbol}:`, toLogError(error));
       
       // Return empty market depth as fallback
       return {
@@ -445,7 +445,7 @@ export class ExecutionOptimizationService {
         }
         
       } catch (error) {
-        logger.error(`Failed to execute split order ${i + 1}/${splitCount}:`, error);
+        logger.error(`Failed to execute split order ${i + 1}/${splitCount}:`, toLogError(error));
         throw error;
       }
     }

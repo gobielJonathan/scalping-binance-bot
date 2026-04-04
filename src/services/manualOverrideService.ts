@@ -12,7 +12,7 @@ import { OrderManager } from './orderManager';
 import { EmergencyStopService } from './emergencyStopService';
 import { ExecutionOptimizationService } from './executionOptimizationService';
 import { DashboardService } from '../dashboard/dashboardService';
-import logger from './logger';
+import logger, { toLogError } from './logger';
 import config from '../config';
 
 /**
@@ -214,7 +214,7 @@ export class ManualOverrideService {
       });
       
     } catch (error) {
-      logger.error('Error executing emergency stop:', error);
+      logger.error('Error executing emergency stop:', toLogError(error));
       res.status(500).json({ error: 'Failed to execute emergency stop' });
     }
   }
@@ -258,7 +258,7 @@ export class ManualOverrideService {
       });
       
     } catch (error) {
-      logger.error('Error handling resume trading:', error);
+      logger.error('Error handling resume trading:', toLogError(error));
       res.status(500).json({ error: 'Failed to process resume trading request' });
     }
   }
@@ -319,7 +319,7 @@ export class ManualOverrideService {
       }
       
     } catch (error) {
-      logger.error('Error closing position:', error);
+      logger.error('Error closing position:', toLogError(error));
       res.status(500).json({ error: 'Failed to close position' });
     }
   }
@@ -364,7 +364,7 @@ export class ManualOverrideService {
             closedPositions.push(closed);
           }
         } catch (error) {
-          logger.error(`Failed to close position ${position.id}:`, error);
+          logger.error(`Failed to close position ${position.id}:`, toLogError(error));
         }
       }
       
@@ -389,7 +389,7 @@ export class ManualOverrideService {
       });
       
     } catch (error) {
-      logger.error('Error closing all positions:', error);
+      logger.error('Error closing all positions:', toLogError(error));
       res.status(500).json({ error: 'Failed to close all positions' });
     }
   }
@@ -463,7 +463,7 @@ export class ManualOverrideService {
       });
       
     } catch (error) {
-      logger.error('Error pausing trading:', error);
+      logger.error('Error pausing trading:', toLogError(error));
       res.status(500).json({ error: 'Failed to pause trading' });
     }
   }
@@ -536,7 +536,7 @@ export class ManualOverrideService {
       });
       
     } catch (error) {
-      logger.error('Error adjusting parameter:', error);
+      logger.error('Error adjusting parameter:', toLogError(error));
       res.status(500).json({ error: 'Failed to adjust parameter' });
     }
   }
@@ -584,7 +584,7 @@ export class ManualOverrideService {
       });
       
     } catch (error) {
-      logger.error('Error updating threshold:', error);
+      logger.error('Error updating threshold:', toLogError(error));
       res.status(500).json({ error: 'Failed to update risk threshold' });
     }
   }
@@ -680,7 +680,7 @@ export class ManualOverrideService {
       });
       
     } catch (error) {
-      logger.error('Error approving command:', error);
+      logger.error('Error approving command:', toLogError(error));
       res.status(500).json({ error: 'Failed to approve command' });
     }
   }
@@ -720,7 +720,7 @@ export class ManualOverrideService {
       });
       
     } catch (error) {
-      logger.error('Error rejecting command:', error);
+      logger.error('Error rejecting command:', toLogError(error));
       res.status(500).json({ error: 'Failed to reject command' });
     }
   }
@@ -739,7 +739,7 @@ export class ManualOverrideService {
       }
     } catch (error) {
       command.status = 'FAILED';
-      logger.error(`Failed to execute command ${command.id}:`, error);
+      logger.error(`Failed to execute command ${command.id}:`, toLogError(error));
       throw error;
     }
   }

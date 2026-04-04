@@ -8,7 +8,7 @@ import {
 } from './index';
 import { DashboardService } from '../dashboard/dashboardService';
 import { SystemHealthMetrics, Portfolio, MarketData } from '../types';
-import logger from './logger';
+import logger, { toLogError } from './logger';
 import monitoringService from './monitoringService';
 import config from '../config';
 
@@ -99,7 +99,7 @@ export class EnhancedTradingBot {
       logger.info('Enhanced Trading Bot started successfully');
       
     } catch (error) {
-      logger.error('Failed to start Enhanced Trading Bot:', error);
+      logger.error('Failed to start Enhanced Trading Bot:', toLogError(error));
       throw error;
     }
   }
@@ -134,7 +134,7 @@ export class EnhancedTradingBot {
       logger.info('Enhanced Trading Bot stopped successfully');
       
     } catch (error) {
-      logger.error('Error stopping Enhanced Trading Bot:', error);
+      logger.error('Error stopping Enhanced Trading Bot:', toLogError(error));
       throw error;
     }
   }
@@ -198,12 +198,12 @@ export class EnhancedTradingBot {
       return execution;
       
     } catch (error) {
-      logger.error('Error executing trade:', error);
+      logger.error('Error executing trade:', toLogError(error));
       
       // Broadcast error
       this.dashboardService.broadcastSystemStatus({
         status: 'ERROR',
-        message: `Trade execution failed: ${error.message}`,
+        message: `Trade execution failed: ${error instanceof Error ? error.message : String(error)}`,
         timestamp: Date.now()
       });
       
@@ -240,7 +240,7 @@ export class EnhancedTradingBot {
       this.dashboardService.broadcastMarketData(marketData);
       
     } catch (error) {
-      logger.error('Error processing market data:', error);
+      logger.error('Error processing market data:', toLogError(error));
     }
   }
 
@@ -315,7 +315,7 @@ export class EnhancedTradingBot {
       });
       
     } catch (error) {
-      logger.error('Health check failed:', error);
+      logger.error('Health check failed:', toLogError(error));
     }
   }
 

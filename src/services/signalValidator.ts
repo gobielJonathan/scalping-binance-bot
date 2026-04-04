@@ -92,7 +92,7 @@ export class SignalValidator {
         testName: 'Basic Signal Generation',
         passed: false,
         details: [],
-        message: `Test failed with error: ${error.message}`
+        message: `Test failed with error: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }
@@ -142,7 +142,7 @@ export class SignalValidator {
         testName: 'Signal Strength Calibration',
         passed: false,
         details: [],
-        message: `Test failed with error: ${error.message}`
+        message: `Test failed with error: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }
@@ -198,7 +198,7 @@ export class SignalValidator {
         testName: 'Market Regime Detection',
         passed: false,
         details: [],
-        message: `Test failed with error: ${error.message}`
+        message: `Test failed with error: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }
@@ -251,7 +251,7 @@ export class SignalValidator {
         testName: 'Signal Aggregation',
         passed: false,
         details: [],
-        message: `Test failed with error: ${error.message}`
+        message: `Test failed with error: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }
@@ -319,7 +319,7 @@ export class SignalValidator {
         testName: 'Signal Filtering',
         passed: false,
         details: [],
-        message: `Test failed with error: ${error.message}`
+        message: `Test failed with error: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }
@@ -374,7 +374,7 @@ export class SignalValidator {
         testName: 'Signal Decay',
         passed: false,
         details: [],
-        message: `Test failed with error: ${error.message}`
+        message: `Test failed with error: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }
@@ -442,7 +442,7 @@ export class SignalValidator {
         testName: 'Performance Tracking',
         passed: false,
         details: [],
-        message: `Test failed with error: ${error.message}`
+        message: `Test failed with error: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }
@@ -504,7 +504,7 @@ export class SignalValidator {
         testName: 'Risk Adjustment',
         passed: false,
         details: [],
-        message: `Test failed with error: ${error.message}`
+        message: `Test failed with error: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }

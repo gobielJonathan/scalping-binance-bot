@@ -113,7 +113,7 @@ export class MarketDataService extends EventEmitter {
       this.emit('started');
     } catch (error) {
       this.isStarted = false;
-      logger.error('Failed to start MarketDataService', { error: error.message });
+      logger.error('Failed to start MarketDataService', { error: { message: error instanceof Error ? error.message : String(error) } });
       throw error;
     }
   }
@@ -151,7 +151,7 @@ export class MarketDataService extends EventEmitter {
 
       this.emit('stopped');
     } catch (error) {
-      logger.error('Error stopping MarketDataService', { error: error.message });
+      logger.error('Error stopping MarketDataService', { error: { message: error instanceof Error ? error.message : String(error) } });
       throw error;
     }
   }
@@ -222,7 +222,7 @@ export class MarketDataService extends EventEmitter {
       
       logger.info('Symbol added to market data service', { symbol, intervals });
     } catch (error) {
-      logger.error('Failed to add symbol', { symbol, error: error.message });
+      logger.error('Failed to add symbol', { symbol, error: { message: error instanceof Error ? error.message : String(error) } });
       throw error;
     }
   }
@@ -253,7 +253,7 @@ export class MarketDataService extends EventEmitter {
       
       logger.info('Symbol removed from market data service', { symbol });
     } catch (error) {
-      logger.error('Failed to remove symbol', { symbol, error: error.message });
+      logger.error('Failed to remove symbol', { symbol, error: { message: error instanceof Error ? error.message : String(error) } });
       throw error;
     }
   }
@@ -303,7 +303,7 @@ export class MarketDataService extends EventEmitter {
       logger.error('Failed to refresh historical data', {
         symbol,
         interval,
-        error: error.message
+        error: { message: error instanceof Error ? error.message : String(error) }
       });
       throw error;
     }
@@ -368,7 +368,7 @@ export class MarketDataService extends EventEmitter {
         logger.error('Failed to load historical data during initialization', {
           symbol,
           interval,
-          error: error.message
+          error: { message: error instanceof Error ? error.message : String(error) }
         });
       }
     }
@@ -421,7 +421,7 @@ export class MarketDataService extends EventEmitter {
     } catch (error) {
       logger.error('Failed to start streams for symbol', {
         symbol,
-        error: error.message
+        error: { message: error instanceof Error ? error.message : String(error) }
       });
       throw error;
     }
@@ -440,7 +440,7 @@ export class MarketDataService extends EventEmitter {
         await this.closeWebSocket(ws);
         this.activeStreams.delete(key);
       } catch (error) {
-        logger.error('Failed to close stream', { streamKey: key, error: error.message });
+        logger.error('Failed to close stream', { streamKey: key, error: { message: error instanceof Error ? error.message : String(error) } });
       }
     }
 
@@ -468,7 +468,7 @@ export class MarketDataService extends EventEmitter {
       logger.error('Failed to start kline stream', {
         symbol,
         interval,
-        error: error.message
+        error: { message: error instanceof Error ? error.message : String(error) }
       });
       throw error;
     }
@@ -494,7 +494,7 @@ export class MarketDataService extends EventEmitter {
     } catch (error) {
       logger.error('Failed to start ticker stream', {
         symbol,
-        error: error.message
+        error: { message: error instanceof Error ? error.message : String(error) }
       });
       throw error;
     }
@@ -549,7 +549,7 @@ export class MarketDataService extends EventEmitter {
       logger.error('Error processing candle data', {
         symbol,
         interval,
-        error: error.message,
+        error: { message: error instanceof Error ? error.message : String(error) },
         candle
       });
     }
@@ -589,7 +589,7 @@ export class MarketDataService extends EventEmitter {
     } catch (error) {
       logger.error('Error processing ticker data', {
         symbol,
-        error: error.message,
+        error: { message: error instanceof Error ? error.message : String(error) },
         marketData
       });
     }

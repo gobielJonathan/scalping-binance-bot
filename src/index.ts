@@ -18,7 +18,8 @@ class CryptoScalpingBot {
   private dashboard: DashboardService;
   private isRunning: boolean = false;
   private marketDataCache: Map<string, Candle[]> = new Map();
-  private currentMarketData: MarketData[] = [];
+  // Map is the single source of truth for market data — O(1) read/write by symbol
+  private currentMarketDataMap: Map<string, MarketData> = new Map();
 
   // Services that will be injected when available
   private binanceService: any = null;
@@ -114,15 +115,8 @@ class CryptoScalpingBot {
     this.marketDataService.on("marketDataUpdate", (update) => {
       try {
         if (update.marketData) {
-          // Update current market data
-          const index = this.currentMarketData.findIndex(
-            (data) => data.symbol === update.symbol,
-          );
-          if (index !== -1) {
-            this.currentMarketData[index] = update.marketData;
-          } else {
-            this.currentMarketData.push(update.marketData);
-          }
+          // O(1) Map update — no array scan needed
+          this.currentMarketDataMap.set(update.symbol, update.marketData);
 
           // Broadcast to dashboard
           this.dashboard.broadcastMarketData([update.marketData]);
@@ -321,7 +315,7 @@ class CryptoScalpingBot {
         this.marketDataCache.set(pair, []);
 
         // Add to current market data with placeholder values
-        this.currentMarketData.push({
+        const placeholder: MarketData = {
           symbol: pair,
           price: 0,
           volume24h: 0,
@@ -331,7 +325,8 @@ class CryptoScalpingBot {
           ask: 0,
           spread: 0,
           timestamp: Date.now(),
-        });
+        };
+        this.currentMarketDataMap.set(pair, placeholder);
 
         console.log(`📊 Initialized ${pair}`);
       } catch (error) {
@@ -358,7 +353,7 @@ class CryptoScalpingBot {
         }
 
         // Monitor existing positions
-        this.orderManager.monitorPositions(this.currentMarketData);
+        this.orderManager.monitorPositions(Array.from(this.currentMarketDataMap.values()));
 
         // Generate trading signals for each pair
         for (const pair of config.trading.pairs) {
@@ -401,8 +396,7 @@ class CryptoScalpingBot {
   private async updateMarketData(): Promise<void> {
     // This would normally fetch real data from Binance
     // For now, we'll simulate some basic price movements
-    for (let i = 0; i < this.currentMarketData.length; i++) {
-      const data = this.currentMarketData[i];
+    for (const data of this.currentMarketDataMap.values()) {
       if (!data) continue;
 
       if (data.price === 0) {
@@ -448,9 +442,8 @@ class CryptoScalpingBot {
         marketData = this.marketDataService.getMarketData(pair) || undefined;
       } else {
         candles = this.marketDataCache.get(pair) || [];
-        marketData = this.currentMarketData.find(
-          (data) => data.symbol === pair,
-        );
+        // O(1) Map lookup instead of O(n) Array.find
+        marketData = this.currentMarketDataMap.get(pair);
       }
 
       if (!marketData) {
@@ -591,7 +584,7 @@ class CryptoScalpingBot {
     const dashboardData: any = {
       portfolio,
       riskHealth,
-      marketData: this.currentMarketData,
+      marketData: Array.from(this.currentMarketDataMap.values()),
     };
 
     if (this.marketDataService) {

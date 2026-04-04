@@ -108,42 +108,68 @@ export class TechnicalIndicators {
 
   /**
    * Calculate Bollinger Bands
+   * Uses a sliding-window sum and sum-of-squares for O(n) instead of O(n*period).
    */
   static calculateBollingerBands(prices: number[], period: number = 20, deviation: number = 2) {
     if (prices.length < period) return { upper: [], middle: [], lower: [] };
-    
+
     const middle: number[] = [];
     const upper: number[] = [];
     const lower: number[] = [];
-    
-    for (let i = period - 1; i < prices.length; i++) {
-      const slice = prices.slice(i - period + 1, i + 1);
-      const sma = slice.reduce((sum, price) => sum + price, 0) / period;
-      
-      // Calculate standard deviation
-      const variance = slice.reduce((sum, price) => sum + Math.pow(price - sma, 2), 0) / period;
-      const standardDev = Math.sqrt(variance);
-      
-      middle.push(sma);
-      upper.push(sma + (deviation * standardDev));
-      lower.push(sma - (deviation * standardDev));
+
+    // Seed the sliding-window accumulators with the first window
+    let windowSum = 0;
+    let windowSumSq = 0;
+    for (let i = 0; i < period; i++) {
+      windowSum += prices[i];
+      windowSumSq += prices[i] * prices[i];
     }
-    
+
+    const pushBands = (sum: number, sumSq: number) => {
+      const sma = sum / period;
+      // variance = E[x²] - (E[x])²
+      const variance = Math.max(0, sumSq / period - sma * sma);
+      const standardDev = Math.sqrt(variance);
+      middle.push(sma);
+      upper.push(sma + deviation * standardDev);
+      lower.push(sma - deviation * standardDev);
+    };
+
+    pushBands(windowSum, windowSumSq);
+
+    for (let i = period; i < prices.length; i++) {
+      const incoming = prices[i];
+      const outgoing = prices[i - period];
+      windowSum += incoming - outgoing;
+      windowSumSq += incoming * incoming - outgoing * outgoing;
+      pushBands(windowSum, windowSumSq);
+    }
+
     return { upper, middle, lower };
   }
 
   /**
    * Calculate Simple Moving Average
+   * Uses a sliding-window sum for O(n) instead of O(n*period).
    */
   static calculateSMA(prices: number[], period: number): number[] {
     if (prices.length < period) return [];
-    
+
     const smaArray: number[] = [];
-    for (let i = period - 1; i < prices.length; i++) {
-      const sum = prices.slice(i - period + 1, i + 1).reduce((sum, price) => sum + price, 0);
-      smaArray.push(sum / period);
+
+    // Compute the sum of the first window
+    let windowSum = 0;
+    for (let i = 0; i < period; i++) {
+      windowSum += prices[i];
     }
-    
+    smaArray.push(windowSum / period);
+
+    // Slide the window: add the incoming price, subtract the outgoing price
+    for (let i = period; i < prices.length; i++) {
+      windowSum += prices[i] - prices[i - period];
+      smaArray.push(windowSum / period);
+    }
+
     return smaArray;
   }
 
@@ -156,23 +182,44 @@ export class TechnicalIndicators {
 
   /**
    * Calculate volatility (standard deviation of returns)
+   * Uses a sliding-window sum and sum-of-squares for O(n) instead of O(n*period).
    */
   static calculateVolatility(prices: number[], period: number = 20): number[] {
     if (prices.length < period + 1) return [];
-    
+
     const returns: number[] = [];
     for (let i = 1; i < prices.length; i++) {
       returns.push((prices[i] - prices[i - 1]) / prices[i - 1]);
     }
-    
+
+    if (returns.length < period) return [];
+
     const volatilityArray: number[] = [];
-    for (let i = period - 1; i < returns.length; i++) {
-      const slice = returns.slice(i - period + 1, i + 1);
-      const mean = slice.reduce((sum, ret) => sum + ret, 0) / period;
-      const variance = slice.reduce((sum, ret) => sum + Math.pow(ret - mean, 2), 0) / period;
-      volatilityArray.push(Math.sqrt(variance));
+
+    // Seed the sliding window
+    let windowSum = 0;
+    let windowSumSq = 0;
+    for (let i = 0; i < period; i++) {
+      windowSum += returns[i];
+      windowSumSq += returns[i] * returns[i];
     }
-    
+
+    const pushVolatility = (sum: number, sumSq: number) => {
+      const mean = sum / period;
+      const variance = Math.max(0, sumSq / period - mean * mean);
+      volatilityArray.push(Math.sqrt(variance));
+    };
+
+    pushVolatility(windowSum, windowSumSq);
+
+    for (let i = period; i < returns.length; i++) {
+      const incoming = returns[i];
+      const outgoing = returns[i - period];
+      windowSum += incoming - outgoing;
+      windowSumSq += incoming * incoming - outgoing * outgoing;
+      pushVolatility(windowSum, windowSumSq);
+    }
+
     return volatilityArray;
   }
 
@@ -207,13 +254,18 @@ export class TechnicalIndicators {
     const kValues: number[] = [];
     
     for (let i = kPeriod - 1; i < candles.length; i++) {
-      const slice = candles.slice(i - kPeriod + 1, i + 1);
       const current = candles[i];
+
+      let lowestLow = candles[i - kPeriod + 1].low;
+      let highestHigh = candles[i - kPeriod + 1].high;
+      for (let j = i - kPeriod + 2; j <= i; j++) {
+        if (candles[j].low < lowestLow) lowestLow = candles[j].low;
+        if (candles[j].high > highestHigh) highestHigh = candles[j].high;
+      }
       
-      const lowestLow = Math.min(...slice.map(c => c.low));
-      const highestHigh = Math.max(...slice.map(c => c.high));
-      
-      const k = ((current.close - lowestLow) / (highestHigh - lowestLow)) * 100;
+      const k = highestHigh !== lowestLow
+        ? ((current.close - lowestLow) / (highestHigh - lowestLow)) * 100
+        : 50;
       kValues.push(k);
     }
     
@@ -279,13 +331,18 @@ export class TechnicalIndicators {
     const williamsRValues: number[] = [];
     
     for (let i = period - 1; i < candles.length; i++) {
-      const slice = candles.slice(i - period + 1, i + 1);
       const current = candles[i];
+
+      let highestHigh = candles[i - period + 1].high;
+      let lowestLow = candles[i - period + 1].low;
+      for (let j = i - period + 2; j <= i; j++) {
+        if (candles[j].high > highestHigh) highestHigh = candles[j].high;
+        if (candles[j].low < lowestLow) lowestLow = candles[j].low;
+      }
       
-      const highestHigh = Math.max(...slice.map(c => c.high));
-      const lowestLow = Math.min(...slice.map(c => c.low));
-      
-      const williamsR = ((highestHigh - current.close) / (highestHigh - lowestLow)) * -100;
+      const williamsR = highestHigh !== lowestLow
+        ? ((highestHigh - current.close) / (highestHigh - lowestLow)) * -100
+        : -50;
       williamsRValues.push(williamsR);
     }
     

@@ -603,15 +603,15 @@ export class MarketDataService extends EventEmitter {
     const lastCandle = window.candles[window.candles.length - 1];
     
     if (lastCandle && lastCandle.openTime === newCandle.openTime) {
-      // Update existing candle
+      // Update existing candle in-place
       window.candles[window.candles.length - 1] = newCandle;
     } else {
-      // Add new candle
+      // Add new candle and maintain sliding window size
       window.candles.push(newCandle);
       
-      // Maintain sliding window size
+      // Remove oldest element in O(1) instead of copying the entire array
       if (window.candles.length > window.maxSize) {
-        window.candles = window.candles.slice(-window.maxSize);
+        window.candles.shift();
       }
     }
     

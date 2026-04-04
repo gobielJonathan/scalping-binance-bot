@@ -2,6 +2,7 @@ import { PortfolioTracker, PortfolioMetrics, PortfolioAlert } from './portfolioT
 import { RiskManager, RiskMetrics, LossLimit, PerformanceMetrics } from './riskManager';
 import { OrderManager } from './orderManager';
 import { MarketData, TradePosition } from '../types';
+import { logger } from './logger';
 
 export interface DashboardUpdate {
   timestamp: number;
@@ -129,7 +130,7 @@ export class IntegrationService {
       
       return dashboardUpdate;
     } catch (error) {
-      console.error('Error updating systems:', error);
+      logger.error('Error updating systems:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       throw error;
     }
   }
@@ -157,7 +158,7 @@ export class IntegrationService {
       try {
         callback(update);
       } catch (error) {
-        console.error('Error notifying subscriber:', error);
+        logger.error('Error notifying subscriber:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       }
     });
   }
@@ -234,9 +235,9 @@ export class IntegrationService {
 
     // Log critical notifications
     if (notification.severity === 'CRITICAL') {
-      console.error(`CRITICAL NOTIFICATION: ${notification.title} - ${notification.message}`);
+      logger.error(`CRITICAL NOTIFICATION: ${notification.title} - ${notification.message}`);
     } else if (notification.severity === 'HIGH') {
-      console.warn(`HIGH PRIORITY NOTIFICATION: ${notification.title} - ${notification.message}`);
+      logger.warn(`HIGH PRIORITY NOTIFICATION: ${notification.title} - ${notification.message}`);
     }
   }
 
@@ -334,7 +335,7 @@ export class IntegrationService {
   private storeOptimizationSuggestions(suggestions: OptimizationSuggestion[]): void {
     // In a real implementation, these would be stored in a database
     suggestions.forEach(suggestion => {
-      console.log(`OPTIMIZATION SUGGESTION [${suggestion.impact}]: ${suggestion.title}`);
+      logger.info(`OPTIMIZATION SUGGESTION [${suggestion.impact}]: ${suggestion.title}`);
     });
   }
 
@@ -421,7 +422,7 @@ export class IntegrationService {
    */
   markNotificationsRead(notificationIds: string[]): void {
     // In a real implementation, this would update a database
-    console.log(`Marked ${notificationIds.length} notifications as read`);
+    logger.info(`Marked ${notificationIds.length} notifications as read`);
   }
 
   /**

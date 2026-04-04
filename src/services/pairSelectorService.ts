@@ -1,5 +1,6 @@
 import { BinanceService } from './binanceService';
 import { MarketData } from '../types';
+import { logger } from './logger';
 
 export interface VolatilityScore {
   symbol: string;
@@ -80,25 +81,25 @@ export class PairSelectorService {
       const scores = await this.getVolatilityScores(options);
 
       if (scores.length === 0) {
-        console.warn('⚠️  PairSelectorService: No pairs matched the filters — using fallback pairs');
+        logger.warn('PairSelectorService: No pairs matched the filters — using fallback pairs');
         return fallbackPairs.slice(0, topN);
       }
 
       const selected = scores.slice(0, topN).map((s) => s.symbol);
 
-      console.log(`🔥 Top ${selected.length} high-volatility pairs selected:`);
+      logger.info(`Top ${selected.length} high-volatility pairs selected`);
       scores.slice(0, topN).forEach((s, i) => {
         const rank = `${i + 1}.`.padEnd(4);
         const symbol = s.symbol.padEnd(12);
         const change = `${s.priceChangePercent >= 0 ? '+' : ''}${s.priceChangePercent.toFixed(2)}%`.padStart(8);
         const vol = `$${(s.quoteVolume24h / 1_000_000).toFixed(1)}M`.padStart(10);
-        console.log(`   ${rank}${symbol} change: ${change}  vol: ${vol}  score: ${s.score.toFixed(2)}`);
+        logger.info(`   ${rank}${symbol} change: ${change}  vol: ${vol}  score: ${s.score.toFixed(2)}`);
       });
 
       return selected;
     } catch (error) {
-      console.error('❌ PairSelectorService: Failed to fetch ticker data —', error);
-      console.warn(`⚠️  Falling back to default pairs: ${fallbackPairs.join(', ')}`);
+      logger.error('PairSelectorService: Failed to fetch ticker data —', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
+      logger.warn(`Falling back to default pairs: ${fallbackPairs.join(', ')}`);
       return fallbackPairs.slice(0, topN);
     }
   }

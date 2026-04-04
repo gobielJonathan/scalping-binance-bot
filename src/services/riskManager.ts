@@ -1,6 +1,7 @@
 import { TradePosition, Portfolio, OrderRequest, MarketData, TradingSignal } from '../types';
 import config from '../config';
 import { calculatePnL, generateTradeId } from '../utils/helpers';
+import { logger } from './logger';
 
 export interface PositionSizingParams {
   method: 'FIXED' | 'KELLY' | 'VOLATILITY_ADJUSTED' | 'RISK_PARITY' | 'EQUAL_WEIGHT' | 'DYNAMIC';
@@ -541,10 +542,10 @@ export class RiskManager {
    */
   triggerEmergencyStop(reason: string): void {
     this.emergencyStopTriggered = true;
-    console.error(`Emergency stop triggered: ${reason}`);
+    logger.error(`Emergency stop triggered: ${reason}`);
     
     // Log all open positions for manual review
-    console.log('Open positions at emergency stop:', this.portfolio.openPositions);
+    logger.info('Open positions at emergency stop', { positions: this.portfolio.openPositions });
   }
 
   /**
@@ -920,7 +921,7 @@ export class RiskManager {
     // Reduce position sizing for new trades by 50%
     this.positionSizingParams.baseRiskPercent *= 0.5;
     
-    console.warn(`Auto position reduction triggered. Reduced base risk to ${this.positionSizingParams.baseRiskPercent.toFixed(2)}%.`);
+    logger.warn(`Auto position reduction triggered. Reduced base risk to ${this.positionSizingParams.baseRiskPercent.toFixed(2)}%.`);
   }
 
   /**

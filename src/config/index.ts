@@ -18,6 +18,10 @@ export interface Config {
     dailyLossLimit: number;
     maxConcurrentTrades: number;
     pairs: string[];
+    pairSelectionMode: 'static' | 'dynamic';
+    topVolatilityPairs: number;
+    minVolume24hUsdt: number;
+    volatilityRefreshInterval: number;
   };
   indicators: {
     emaShort: number;
@@ -78,6 +82,17 @@ const config: Config = {
     dailyLossLimit: parseFloat(process.env.DAILY_LOSS_LIMIT || '0.15'),
     maxConcurrentTrades: parseInt(process.env.MAX_CONCURRENT_TRADES || '3'),
     pairs: (process.env.TRADING_PAIRS || 'BTCUSDT,ETHUSDT,BNBUSDT').split(','),
+    pairSelectionMode: (() => {
+      const mode = process.env.PAIR_SELECTION_MODE;
+      if (mode === 'dynamic' || mode === 'static') return mode;
+      if (mode !== undefined) {
+        console.warn(`Warning: PAIR_SELECTION_MODE="${mode}" is not valid — defaulting to "static"`);
+      }
+      return 'static';
+    })(),
+    topVolatilityPairs: parseInt(process.env.TOP_VOLATILITY_PAIRS || '5'),
+    minVolume24hUsdt: parseFloat(process.env.MIN_VOLUME_24H_USDT || '10000000'),
+    volatilityRefreshInterval: parseInt(process.env.VOLATILITY_REFRESH_INTERVAL || '3600000'),
   },
   indicators: {
     emaShort: parseInt(process.env.EMA_SHORT || '9'),

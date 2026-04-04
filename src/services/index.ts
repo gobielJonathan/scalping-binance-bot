@@ -20,6 +20,8 @@ export { SignalValidator } from './signalValidator';
 export { SignalMonitor } from './signalMonitor';
 export { PortfolioTracker } from './portfolioTracker';
 export { IntegrationService } from './integrationService';
+export { PairSelectorService } from './pairSelectorService';
+export type { VolatilityScore, PairSelectorOptions } from './pairSelectorService';
 
 //
 export type {

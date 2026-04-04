@@ -5,7 +5,7 @@ import { OrderManager } from "./services/orderManager";
 import { MarketDataService } from "./services/marketDataService";
 import { DashboardService } from "./dashboard/dashboardService";
 import { Candle, MarketData, TradingSignal } from "./types";
-import { BinanceService, DatabaseService, logger } from "./services";
+import { BinanceService, DatabaseService, logger, PairSelectorService } from "./services";
 
 /**
  * Main trading bot application
@@ -24,6 +24,8 @@ class CryptoScalpingBot {
   private binanceService: any = null;
   private logger: any = null;
   private database: any = null;
+  private pairSelectorService: PairSelectorService | null = null;
+  private volatilityRefreshTimer: NodeJS.Timeout | null = null;
 
   constructor() {
     console.log("🚀 Initializing Crypto Scalping Bot...");
@@ -57,6 +59,10 @@ class CryptoScalpingBot {
       // Initialize MarketDataService with BinanceService
       this.marketDataService = new MarketDataService(services.binanceService);
       this.setupMarketDataEventHandlers();
+
+      // Initialize PairSelectorService for dynamic pair selection
+      this.pairSelectorService = new PairSelectorService(services.binanceService);
+
       console.log("✅ Binance service connected");
     }
 
@@ -190,6 +196,17 @@ class CryptoScalpingBot {
     try {
       console.log("🔧 Starting services...");
 
+      // Dynamically select high-volatility pairs when configured
+      if (config.trading.pairSelectionMode === 'dynamic') {
+        await this.refreshVolatilityPairs();
+
+        // Schedule periodic pair refresh
+        this.volatilityRefreshTimer = setInterval(
+          () => this.refreshVolatilityPairs(),
+          config.trading.volatilityRefreshInterval,
+        );
+      }
+
       // Start dashboard if enabled
       if (config.dashboard.enabled) {
         await this.dashboard.start();
@@ -232,6 +249,12 @@ class CryptoScalpingBot {
     this.isRunning = false;
 
     try {
+      // Stop periodic pair refresh timer if running
+      if (this.volatilityRefreshTimer) {
+        clearInterval(this.volatilityRefreshTimer);
+        this.volatilityRefreshTimer = null;
+      }
+
       // Stop MarketDataService
       if (this.marketDataService) {
         console.log("📡 Stopping MarketDataService...");
@@ -250,6 +273,39 @@ class CryptoScalpingBot {
     } catch (error) {
       console.error("❌ Error stopping bot:", error);
       throw error;
+    }
+  }
+
+  /**
+   * Fetch high-volatility pairs from Binance and update the active trading pairs.
+   * Called once on startup (in dynamic mode) and then periodically.
+   */
+  private async refreshVolatilityPairs(): Promise<void> {
+    if (!this.pairSelectorService) {
+      console.warn("⚠️ PairSelectorService not available — skipping volatility pair refresh");
+      return;
+    }
+
+    console.log("🔍 Scanning Binance for high-volatility pairs...");
+
+    const selected = await this.pairSelectorService.selectTopVolatilityPairs(
+      {
+        quoteAsset: 'USDT',
+        topN: config.trading.topVolatilityPairs,
+        minVolume24hUsdt: config.trading.minVolume24hUsdt,
+      },
+      config.trading.pairs, // fallback to currently configured pairs
+    );
+
+    // Update the active pairs in the shared config so the trading loop (which
+    // iterates config.trading.pairs on every tick) immediately picks up the
+    // new selection without requiring a restart.
+    config.trading.pairs = selected;
+
+    if (this.logger) {
+      this.logger.info("Trading pairs updated via volatility scan", {
+        pairs: selected,
+      });
     }
   }
 

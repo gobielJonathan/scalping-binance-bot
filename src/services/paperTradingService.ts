@@ -6,7 +6,7 @@ import {
   DatabaseTrade
 } from '../types';
 import { RiskManager } from './riskManager';
-import { logger } from './logger';
+import { logger, toLogError } from './logger';
 import { DatabaseService } from '../database/databaseService';
 import config from '../config';
 import { 
@@ -368,7 +368,7 @@ export class PaperTradingService {
       return position;
 
     } catch (error) {
-      logger.error('Error executing paper trade:', error);
+      logger.error('Error executing paper trade:', toLogError(error));
       return null;
     }
   }
@@ -444,7 +444,7 @@ export class PaperTradingService {
       return position;
 
     } catch (error) {
-      logger.error('Error closing paper position:', error);
+      logger.error('Error closing paper position:', toLogError(error));
       return null;
     }
   }

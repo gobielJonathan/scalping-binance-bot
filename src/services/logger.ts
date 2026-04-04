@@ -13,6 +13,7 @@ interface LogMetadata {
     memoryUsage?: number;
   };
   error?: {
+    message?: string;
     stack?: string;
     code?: string;
   };
@@ -161,6 +162,20 @@ class Logger {
   close(): Promise<void> {
     return Promise.resolve();
   }
+}
+
+// Export LogMetadata for use in other modules
+export type { LogMetadata };
+
+/**
+ * Converts an unknown caught error to a LogMetadata-compatible error object.
+ * Use this in catch blocks to safely pass error info to logger methods.
+ */
+export function toLogError(error: unknown): { error: { message: string; stack?: string } } {
+  if (error instanceof Error) {
+    return { error: { message: error.message, stack: error.stack } };
+  }
+  return { error: { message: String(error) } };
 }
 
 // Export singleton instance

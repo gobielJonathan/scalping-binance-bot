@@ -9,7 +9,7 @@ import {
 } from '../types';
 import { RiskManager } from './riskManager';
 import { OrderManager } from './orderManager';
-import logger from './logger';
+import logger, { toLogError } from './logger';
 import config from '../config';
 
 /**
@@ -229,7 +229,7 @@ export class EmergencyStopService {
       }
       
     } catch (error) {
-      logger.error(`Error checking emergency condition ${conditionId}:`, error);
+      logger.error(`Error checking emergency condition ${conditionId}:`, toLogError(error));
     }
   }
 
@@ -406,7 +406,7 @@ export class EmergencyStopService {
             });
           }
         } catch (error) {
-          logger.error(`Failed to close position ${position.id} during emergency stop:`, error);
+          logger.error(`Failed to close position ${position.id} during emergency stop:`, toLogError(error));
         }
       }
       
@@ -418,7 +418,7 @@ export class EmergencyStopService {
       
     } catch (error) {
       this.state.recoveryProcedureStatus = 'FAILED';
-      logger.error('Emergency procedures failed:', error);
+      logger.error('Emergency procedures failed:', toLogError(error));
       throw error;
     }
   }
@@ -499,7 +499,7 @@ Manual intervention may be required before resuming trading.
     } catch (error) {
       notification.deliveryStatus = 'FAILED';
       notification.retryCount++;
-      logger.error(`Failed to send emergency notification:`, error);
+      logger.error(`Failed to send emergency notification:`, toLogError(error));
     }
   }
 

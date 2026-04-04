@@ -1,7 +1,7 @@
 import { DatabaseService } from '../database/databaseService';
 import { PaperTradingService } from '../services/paperTradingService';
 import { BinanceService } from '../services/binanceService';
-import { logger } from '../services/logger';
+import { logger, toLogError } from '../services/logger';
 import config from '../config';
 import { MarketData, DatabaseTrade } from '../types';
 
@@ -93,7 +93,7 @@ export class PaperTradingValidator {
       return result;
 
     } catch (error) {
-      logger.error('Error validating paper trading accuracy:', error);
+      logger.error('Error validating paper trading accuracy:', toLogError(error));
       throw error;
     }
   }
@@ -140,7 +140,7 @@ export class PaperTradingValidator {
       return comparison;
 
     } catch (error) {
-      logger.error('Error validating order execution:', error);
+      logger.error('Error validating order execution:', toLogError(error));
       throw error;
     }
   }
@@ -165,7 +165,7 @@ export class PaperTradingValidator {
         await this.autoAdjustPaperTradingParameters(validation);
 
       } catch (error) {
-        logger.error('Error in continuous validation:', error);
+        logger.error('Error in continuous validation:', toLogError(error));
       }
     }, 60000 * 60 * 6); // Run every 6 hours
   }
@@ -185,7 +185,7 @@ export class PaperTradingValidator {
       });
       return trades;
     } catch (error) {
-      logger.error('Error fetching paper trades:', error);
+      logger.error('Error fetching paper trades:', toLogError(error));
       return [];
     }
   }
@@ -201,7 +201,7 @@ export class PaperTradingValidator {
         logger.warn('Using mock live trade data for validation');
         return this.generateMockLiveData();
       } catch (error) {
-        logger.warn('Could not fetch live trade data, using mock data:', error);
+        logger.warn('Could not fetch live trade data, using mock data:', toLogError(error));
       }
     }
 

@@ -111,7 +111,7 @@ export class OrderManager {
           return null;
         } else {
           // Fallback to basic paper trading if service not available
-          logger.warn('PaperTradingService not available, using basic simulation');
+          console.warn('PaperTradingService not available, using basic simulation');
           console.log(`[PAPER TRADE] ${orderRequest.side} ${orderRequest.quantity} ${orderRequest.symbol} @ $${marketData.price}`);
           
           // Simulate trading fees (0.1% for Binance)
@@ -202,7 +202,7 @@ export class OrderManager {
           return null;
         } else {
           // Fallback to basic paper trading
-          logger.warn('PaperTradingService not available, using basic simulation');
+          console.warn('PaperTradingService not available, using basic simulation');
           console.log(`[PAPER TRADE] Closing position ${positionId}: ${reason}`);
           
           // Simulate additional trading fee for closing
@@ -273,6 +273,71 @@ export class OrderManager {
   }
 
   /**
+   * Cut loss for a position due to an unexpected condition.
+   *
+   * This method logs every step so it is easy to trace exactly what the
+   * system does when it decides to exit a losing trade under adverse or
+   * abnormal circumstances.
+   *
+   * Steps:
+   *   1. Detect – confirm the position exists and log the triggering condition.
+   *   2. Evaluate – calculate the unrealised loss at the current market price.
+   *   3. Execute – place a market close order to exit immediately.
+   *   4. Confirm – log the final realised P&L (or report a failure to close).
+   */
+  async cutLoss(positionId: string, currentPrice: number, reason: string): Promise<TradePosition | null> {
+    const portfolio = this.riskManager.getPortfolio();
+    const position = portfolio.openPositions.find(p => p.id === positionId);
+
+    // Step 1 – Detect
+    if (!position) {
+      console.warn(`[CUT LOSS] Step 1: Position ${positionId} not found – already closed or unknown`);
+      return null;
+    }
+
+    console.warn(
+      `[CUT LOSS] Step 1: Unexpected condition detected for ${position.symbol} (${position.side}) | ` +
+      `Reason: ${reason} | Entry: $${position.entryPrice.toFixed(4)} | Current: $${currentPrice.toFixed(4)} | Stop-loss: $${position.stopLoss.toFixed(4)}`
+    );
+
+    // Step 2 – Evaluate loss
+    const rawPnl =
+      position.side === 'BUY'
+        ? (currentPrice - position.entryPrice) * position.quantity
+        : (position.entryPrice - currentPrice) * position.quantity;
+
+    const lossPercent =
+      ((currentPrice - position.entryPrice) / position.entryPrice) *
+      100 *
+      (position.side === 'BUY' ? 1 : -1);
+
+    console.warn(
+      `[CUT LOSS] Step 2: Evaluating loss – unrealised P&L: $${rawPnl.toFixed(2)} (${lossPercent.toFixed(2)}%)`
+    );
+
+    // Step 3 – Execute close at current market price
+    console.warn(
+      `[CUT LOSS] Step 3: Executing market close – ${position.symbol} ${position.side} ` +
+      `${position.quantity.toFixed(6)} @ $${currentPrice.toFixed(4)}`
+    );
+
+    const closedPosition = await this.closePosition(positionId, reason);
+
+    // Step 4 – Confirm
+    if (closedPosition) {
+      console.warn(
+        `[CUT LOSS] Step 4: Position closed – Final P&L: $${closedPosition.pnl.toFixed(2)} (${closedPosition.pnlPercent.toFixed(2)}%)`
+      );
+    } else {
+      console.error(
+        `[CUT LOSS] Step 4: FAILED to close position ${positionId} – manual intervention may be required`
+      );
+    }
+
+    return closedPosition;
+  }
+
+  /**
    * Monitor positions and trigger stop loss/take profit
    */
   monitorPositions(marketData: MarketData[]): void {
@@ -285,10 +350,27 @@ export class OrderManager {
       // Update current price
       this.riskManager.updatePosition(position.id, symbolData.price);
 
+      // Detect a price-gap scenario: price has moved far past the stop-loss
+      // (e.g. flash crash / sudden news event) – treat as unexpected condition
+      const gapThreshold = 2; // price is more than 2× the stop-loss distance away
+      const stopDistance = Math.abs(position.entryPrice - position.stopLoss);
+      const priceDistance = Math.abs(symbolData.price - position.stopLoss);
+      const isPriceGap =
+        this.riskManager.shouldTriggerStopLoss(position.id, symbolData.price) &&
+        priceDistance > stopDistance * gapThreshold;
+
+      if (isPriceGap) {
+        console.warn(
+          `[UNEXPECTED CONDITION] Price gap detected for ${position.symbol}: ` +
+          `current $${symbolData.price.toFixed(4)} is far past stop-loss $${position.stopLoss.toFixed(4)}`
+        );
+        this.cutLoss(position.id, symbolData.price, 'Unexpected price gap beyond stop-loss');
+        continue;
+      }
+
       // Check stop loss
       if (this.riskManager.shouldTriggerStopLoss(position.id, symbolData.price)) {
-        console.log(`Stop loss triggered for position ${position.id}`);
-        this.closePosition(position.id, 'Stop loss triggered');
+        this.cutLoss(position.id, symbolData.price, 'Stop loss triggered');
         continue;
       }
 
@@ -307,7 +389,7 @@ export class OrderManager {
   /**
    * Check for scalping-specific exit conditions
    */
-  private checkScalpingExit(position: TradePosition, _currentPrice: number): void {
+  private checkScalpingExit(position: TradePosition, currentPrice: number): void {
     const positionAge = Date.now() - position.openTime;
     const ageInMinutes = positionAge / (1000 * 60);
     
@@ -325,10 +407,11 @@ export class OrderManager {
       return;
     }
 
-    // Exit if loss exceeds stop loss (safety check)
+    // Exit if loss exceeds the configured stop-loss percentage – unexpected
+    // because the price-based check above should have caught this first; this
+    // acts as a safety net when P&L-based tracking diverges from price.
     if (position.pnlPercent < -config.trading.stopLossPercentage * 100) {
-      console.log(`Emergency exit for position ${position.id}: ${position.pnlPercent.toFixed(2)}%`);
-      this.closePosition(position.id, 'Emergency stop loss');
+      this.cutLoss(position.id, currentPrice, 'Emergency stop loss – P&L exceeded stop-loss threshold');
       return;
     }
   }

@@ -623,6 +623,8 @@ class CryptoScalpingBot {
           "🛑 Daily loss limit exceeded - triggering emergency stop",
         );
         this.riskManager.triggerEmergencyStop("Daily loss limit exceeded");
+        // Close all open positions to cut further losses immediately
+        this.closeAllPositions("Emergency stop: Daily loss limit exceeded");
       }
     }
   }

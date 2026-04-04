@@ -62,15 +62,15 @@ export class OrderManager {
       // Enhanced risk management check with signal data
       const riskCheck = this.riskManager.canOpenTrade(orderRequest, marketData.price, signal, marketData);
       if (!riskCheck.allowed) {
-        console.log(`Order rejected: ${riskCheck.reason}`);
+        logger.info(`Order rejected: ${riskCheck.reason}`);
         if (riskCheck.maxQuantity) {
-          console.log(`Maximum allowed quantity: ${riskCheck.maxQuantity}`);
+          logger.info(`Maximum allowed quantity: ${riskCheck.maxQuantity}`);
         }
         if (riskCheck.suggestedQuantity) {
-          console.log(`Suggested optimal quantity: ${riskCheck.suggestedQuantity}`);
+          logger.info(`Suggested optimal quantity: ${riskCheck.suggestedQuantity}`);
         }
         if (riskCheck.warnings) {
-          riskCheck.warnings.forEach(warning => console.warn(`Warning: ${warning}`));
+          riskCheck.warnings.forEach(warning => logger.warn(`Warning: ${warning}`));
         }
         return null;
       }
@@ -111,8 +111,8 @@ export class OrderManager {
           return null;
         } else {
           // Fallback to basic paper trading if service not available
-          console.warn('PaperTradingService not available, using basic simulation');
-          console.log(`[PAPER TRADE] ${orderRequest.side} ${orderRequest.quantity} ${orderRequest.symbol} @ $${marketData.price}`);
+          logger.warn('PaperTradingService not available, using basic simulation');
+          logger.info(`[PAPER TRADE] ${orderRequest.side} ${orderRequest.quantity} ${orderRequest.symbol} @ $${marketData.price}`);
           
           // Simulate trading fees (0.1% for Binance)
           const tradingFee = position.quantity * position.entryPrice * 0.001;
@@ -129,11 +129,11 @@ export class OrderManager {
           throw new Error('Binance service not available for live trading');
         }
 
-        console.log(`[LIVE TRADE] Executing ${orderRequest.side} ${finalQuantity} ${orderRequest.symbol}`);
+        logger.info(`[LIVE TRADE] Executing ${orderRequest.side} ${finalQuantity} ${orderRequest.symbol}`);
         
         // Log risk warnings if any
         if (riskCheck.warnings) {
-          riskCheck.warnings.forEach(warning => console.warn(`Risk Warning: ${warning}`));
+          riskCheck.warnings.forEach(warning => logger.warn(`Risk Warning: ${warning}`));
         }
         
         // Execute the order on Binance
@@ -157,7 +157,7 @@ export class OrderManager {
         return position;
       }
     } catch (error) {
-      console.error('Error executing order:', error);
+      logger.error('Error executing order:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       return null;
     }
   }
@@ -171,7 +171,7 @@ export class OrderManager {
       const position = portfolio.openPositions.find(p => p.id === positionId);
       
       if (!position) {
-        console.log(`Position ${positionId} not found`);
+        logger.info(`Position ${positionId} not found`);
         return null;
       }
 
@@ -202,8 +202,8 @@ export class OrderManager {
           return null;
         } else {
           // Fallback to basic paper trading
-          console.warn('PaperTradingService not available, using basic simulation');
-          console.log(`[PAPER TRADE] Closing position ${positionId}: ${reason}`);
+          logger.warn('PaperTradingService not available, using basic simulation');
+          logger.info(`[PAPER TRADE] Closing position ${positionId}: ${reason}`);
           
           // Simulate additional trading fee for closing
           const closeFee = position.quantity * currentPrice * 0.001;
@@ -211,7 +211,7 @@ export class OrderManager {
           const closedPosition = this.riskManager.closePosition(positionId, currentPrice, closeFee);
           
           if (closedPosition) {
-            console.log(`Position closed with P&L: $${closedPosition.pnl.toFixed(2)} (${closedPosition.pnlPercent.toFixed(2)}%)`);
+            logger.info(`Position closed with P&L: $${closedPosition.pnl.toFixed(2)} (${closedPosition.pnlPercent.toFixed(2)}%)`);
           }
           
           return closedPosition;
@@ -222,7 +222,7 @@ export class OrderManager {
           throw new Error('Binance service not available for live trading');
         }
 
-        console.log(`[LIVE TRADE] Closing position ${positionId}: ${reason}`);
+        logger.info(`[LIVE TRADE] Closing position ${positionId}: ${reason}`);
         
         // Determine the opposite side for closing
         const closeSide = position.side === 'BUY' ? 'SELL' : 'BUY';
@@ -244,7 +244,7 @@ export class OrderManager {
         return closedPosition;
       }
     } catch (error) {
-      console.error('Error closing position:', error);
+      logger.error('Error closing position:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       return null;
     }
   }
@@ -266,9 +266,9 @@ export class OrderManager {
         stopPrice: position.stopLoss
       });
 
-      console.log(`Stop loss order placed for position ${position.id} at $${position.stopLoss}`);
+      logger.info(`Stop loss order placed for position ${position.id} at $${position.stopLoss}`);
     } catch (error) {
-      console.error(`Failed to place stop loss for position ${position.id}:`, error);
+      logger.error(`Failed to place stop loss for position ${position.id}:`, { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     }
   }
 
@@ -291,11 +291,11 @@ export class OrderManager {
 
     // Step 1 – Detect
     if (!position) {
-      console.warn(`[CUT LOSS] Step 1: Position ${positionId} not found – already closed or unknown`);
+      logger.warn(`[CUT LOSS] Step 1: Position ${positionId} not found – already closed or unknown`);
       return null;
     }
 
-    console.warn(
+    logger.warn(
       `[CUT LOSS] Step 1: Unexpected condition detected for ${position.symbol} (${position.side}) | ` +
       `Reason: ${reason} | Entry: $${position.entryPrice.toFixed(4)} | Current: $${currentPrice.toFixed(4)} | Stop-loss: $${position.stopLoss.toFixed(4)}`
     );
@@ -311,12 +311,12 @@ export class OrderManager {
       100 *
       (position.side === 'BUY' ? 1 : -1);
 
-    console.warn(
+    logger.warn(
       `[CUT LOSS] Step 2: Evaluating loss – unrealised P&L: $${rawPnl.toFixed(2)} (${lossPercent.toFixed(2)}%)`
     );
 
     // Step 3 – Execute close at current market price
-    console.warn(
+    logger.warn(
       `[CUT LOSS] Step 3: Executing market close – ${position.symbol} ${position.side} ` +
       `${position.quantity.toFixed(6)} @ $${currentPrice.toFixed(4)}`
     );
@@ -325,11 +325,11 @@ export class OrderManager {
 
     // Step 4 – Confirm
     if (closedPosition) {
-      console.warn(
+      logger.warn(
         `[CUT LOSS] Step 4: Position closed – Final P&L: $${closedPosition.pnl.toFixed(2)} (${closedPosition.pnlPercent.toFixed(2)}%)`
       );
     } else {
-      console.error(
+      logger.error(
         `[CUT LOSS] Step 4: FAILED to close position ${positionId} – manual intervention may be required`
       );
     }
@@ -360,7 +360,7 @@ export class OrderManager {
         priceDistance > stopDistance * gapThreshold;
 
       if (isPriceGap) {
-        console.warn(
+        logger.warn(
           `[UNEXPECTED CONDITION] Price gap detected for ${position.symbol}: ` +
           `current $${symbolData.price.toFixed(4)} is far past stop-loss $${position.stopLoss.toFixed(4)}`
         );
@@ -376,7 +376,7 @@ export class OrderManager {
 
       // Check take profit
       if (this.riskManager.shouldTriggerTakeProfit(position.id, symbolData.price)) {
-        console.log(`Take profit triggered for position ${position.id}`);
+        logger.info(`Take profit triggered for position ${position.id}`);
         this.closePosition(position.id, 'Take profit triggered');
         continue;
       }
@@ -395,14 +395,14 @@ export class OrderManager {
     
     // Exit after 5 minutes if still in profit (scalping behavior)
     if (ageInMinutes > 5 && position.pnl > 0) {
-      console.log(`Scalping time-based exit for position ${position.id} after ${ageInMinutes.toFixed(1)} minutes`);
+      logger.info(`Scalping time-based exit for position ${position.id} after ${ageInMinutes.toFixed(1)} minutes`);
       this.closePosition(position.id, 'Scalping time-based exit');
       return;
     }
 
     // Exit if profit exceeds 0.7% (good scalping profit)
     if (position.pnlPercent > 0.7) {
-      console.log(`Scalping profit target hit for position ${position.id}: ${position.pnlPercent.toFixed(2)}%`);
+      logger.info(`Scalping profit target hit for position ${position.id}: ${position.pnlPercent.toFixed(2)}%`);
       this.closePosition(position.id, 'Scalping profit target');
       return;
     }

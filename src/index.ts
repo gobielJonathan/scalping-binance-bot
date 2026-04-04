@@ -29,7 +29,7 @@ class CryptoScalpingBot {
   private volatilityRefreshTimer: NodeJS.Timeout | null = null;
 
   constructor() {
-    console.log("🚀 Initializing Crypto Scalping Bot...");
+    logger.info("Initializing Crypto Scalping Bot...");
 
     // Initialize core components
     this.strategy = new ScalpingStrategy();
@@ -37,11 +37,11 @@ class CryptoScalpingBot {
     this.orderManager = new OrderManager(this.riskManager);
     this.dashboard = new DashboardService();
 
-    console.log(`📊 Trading Mode: ${config.trading.mode.toUpperCase()}`);
-    console.log(`💰 Initial Capital: $${config.trading.initialCapital}`);
-    console.log(`🎯 Trading Pairs: ${config.trading.pairs.join(", ")}`);
-    console.log(
-      `⚡ Risk per Trade: ${(config.trading.riskPerTrade * 100).toFixed(1)}%`,
+    logger.info(`Trading Mode: ${config.trading.mode.toUpperCase()}`);
+    logger.info(`Initial Capital: $${config.trading.initialCapital}`);
+    logger.info(`Trading Pairs: ${config.trading.pairs.join(", ")}`);
+    logger.info(
+      `Risk per Trade: ${(config.trading.riskPerTrade * 100).toFixed(1)}%`,
     );
   }
 
@@ -64,17 +64,17 @@ class CryptoScalpingBot {
       // Initialize PairSelectorService for dynamic pair selection
       this.pairSelectorService = new PairSelectorService(services.binanceService);
 
-      console.log("✅ Binance service connected");
+      logger.info("Binance service connected");
     }
 
     if (services.logger) {
       this.logger = services.logger;
-      console.log("✅ Logger service connected");
+      logger.info("Logger service connected");
     }
 
     if (services.database) {
       this.database = services.database;
-      console.log("✅ Database service connected");
+      logger.info("Database service connected");
     }
   }
 
@@ -99,7 +99,7 @@ class CryptoScalpingBot {
           });
         }
       } catch (error) {
-        console.error("Error handling candle update:", error);
+        logger.error("Error handling candle update:", { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
         if (this.logger) {
           const errorMessage =
             error instanceof Error ? error.message : String(error);
@@ -130,7 +130,7 @@ class CryptoScalpingBot {
           }
         }
       } catch (error) {
-        console.error("Error handling market data update:", error);
+        logger.error("Error handling market data update:", { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
         if (this.logger) {
           const errorMessage =
             error instanceof Error ? error.message : String(error);
@@ -151,22 +151,22 @@ class CryptoScalpingBot {
 
     // Handle service events
     this.marketDataService.on("started", () => {
-      console.log("✅ MarketDataService started successfully");
+      logger.info("MarketDataService started successfully");
       if (this.logger) {
         this.logger.info("MarketDataService started");
       }
     });
 
     this.marketDataService.on("stopped", () => {
-      console.log("⏹️ MarketDataService stopped");
+      logger.info("MarketDataService stopped");
       if (this.logger) {
         this.logger.info("MarketDataService stopped");
       }
     });
 
     this.marketDataService.on("historicalDataRefreshed", (data) => {
-      console.log(
-        `📈 Historical data loaded for ${data.symbol} (${data.candles.length} candles)`,
+      logger.info(
+        `Historical data loaded for ${data.symbol} (${data.candles.length} candles)`,
       );
       if (this.logger) {
         this.logger.info("Historical data refreshed", {
@@ -183,12 +183,12 @@ class CryptoScalpingBot {
    */
   async start(): Promise<void> {
     if (this.isRunning) {
-      console.log("⚠️ Bot is already running");
+      logger.warn("Bot is already running");
       return;
     }
 
     try {
-      console.log("🔧 Starting services...");
+      logger.info("Starting services...");
 
       // Dynamically select high-volatility pairs when configured
       if (config.trading.pairSelectionMode === 'dynamic') {
@@ -204,28 +204,28 @@ class CryptoScalpingBot {
       // Start dashboard if enabled
       if (config.dashboard.enabled) {
         await this.dashboard.start();
-        console.log(
-          `📊 Dashboard available at: http://localhost:${config.dashboard.port}`,
+        logger.info(
+          `Dashboard available at: http://localhost:${config.dashboard.port}`,
         );
       }
 
       // Start MarketDataService if available
       if (this.marketDataService) {
-        console.log("📡 Starting MarketDataService...");
+        logger.info("Starting MarketDataService...");
         await this.marketDataService.start();
       } else {
-        console.log("⚠️ MarketDataService not available, using simulated data");
+        logger.warn("MarketDataService not available, using simulated data");
         // Initialize market data for all trading pairs (fallback)
         await this.initializeMarketData();
       }
 
       this.isRunning = true;
-      console.log("✅ Crypto Scalping Bot is now running!");
+      logger.info("Crypto Scalping Bot is now running!");
 
       // Start main trading loop
       this.startTradingLoop();
     } catch (error) {
-      console.error("❌ Failed to start bot:", error);
+      logger.error("Failed to start bot:", { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       throw error;
     }
   }
@@ -235,11 +235,11 @@ class CryptoScalpingBot {
    */
   async stop(): Promise<void> {
     if (!this.isRunning) {
-      console.log("⚠️ Bot is not running");
+      logger.warn("Bot is not running");
       return;
     }
 
-    console.log("🛑 Stopping Crypto Scalping Bot...");
+    logger.info("Stopping Crypto Scalping Bot...");
     this.isRunning = false;
 
     try {
@@ -251,7 +251,7 @@ class CryptoScalpingBot {
 
       // Stop MarketDataService
       if (this.marketDataService) {
-        console.log("📡 Stopping MarketDataService...");
+        logger.info("Stopping MarketDataService...");
         await this.marketDataService.stop();
       }
 
@@ -263,9 +263,9 @@ class CryptoScalpingBot {
         await this.dashboard.stop();
       }
 
-      console.log("✅ Bot stopped successfully");
+      logger.info("Bot stopped successfully");
     } catch (error) {
-      console.error("❌ Error stopping bot:", error);
+      logger.error("Error stopping bot:", { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       throw error;
     }
   }
@@ -276,11 +276,11 @@ class CryptoScalpingBot {
    */
   private async refreshVolatilityPairs(): Promise<void> {
     if (!this.pairSelectorService) {
-      console.warn("⚠️ PairSelectorService not available — skipping volatility pair refresh");
+      logger.warn("PairSelectorService not available — skipping volatility pair refresh");
       return;
     }
 
-    console.log("🔍 Scanning Binance for high-volatility pairs...");
+    logger.info("Scanning Binance for high-volatility pairs...");
 
     const selected = await this.pairSelectorService.selectTopVolatilityPairs(
       {
@@ -307,7 +307,7 @@ class CryptoScalpingBot {
    * Initialize market data for all trading pairs
    */
   private async initializeMarketData(): Promise<void> {
-    console.log("📈 Initializing market data...");
+    logger.info("Initializing market data...");
 
     for (const pair of config.trading.pairs) {
       try {
@@ -328,9 +328,9 @@ class CryptoScalpingBot {
         };
         this.currentMarketDataMap.set(pair, placeholder);
 
-        console.log(`📊 Initialized ${pair}`);
+        logger.info(`Initialized ${pair}`);
       } catch (error) {
-        console.error(`❌ Failed to initialize ${pair}:`, error);
+        logger.error(`Failed to initialize ${pair}:`, { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       }
     }
   }
@@ -339,7 +339,7 @@ class CryptoScalpingBot {
    * Main trading loop
    */
   private async startTradingLoop(): Promise<void> {
-    console.log("🔄 Starting trading loop...");
+    logger.info("Starting trading loop...");
 
     const loopInterval = 5000; // 5 seconds for scalping
 
@@ -372,7 +372,7 @@ class CryptoScalpingBot {
         // Update risk management
         this.updateRiskManagement();
       } catch (error) {
-        console.error("❌ Error in trading loop:", error);
+        logger.error("Error in trading loop:", { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
         if (this.logger) {
           const errorMessage =
             error instanceof Error ? error.message : String(error);
@@ -490,7 +490,7 @@ class CryptoScalpingBot {
         await this.executeSignal(pair, signal, marketData);
       }
     } catch (error) {
-      console.error(`❌ Error processing signal for ${pair}:`, error);
+      logger.error(`Error processing signal for ${pair}:`, { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       if (this.logger) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
@@ -518,7 +518,7 @@ class CryptoScalpingBot {
       );
 
       if (orderSize <= 0) {
-        console.log(`⚠️ Order size too small for ${pair}: ${orderSize}`);
+        logger.warn(`Order size too small for ${pair}: ${orderSize}`);
         return;
       }
 
@@ -529,8 +529,8 @@ class CryptoScalpingBot {
         quantity: orderSize,
       };
 
-      console.log(
-        `🎯 Signal: ${signal.type} ${pair} - Confidence: ${signal.confidence}% - ${signal.reason}`,
+      logger.info(
+        `Signal: ${signal.type} ${pair} - Confidence: ${signal.confidence}% - ${signal.reason}`,
       );
 
       const position = await this.orderManager.executeOrder(
@@ -539,8 +539,8 @@ class CryptoScalpingBot {
       );
 
       if (position) {
-        console.log(
-          `✅ Position opened: ${position.side} ${position.quantity.toFixed(6)} ${position.symbol} @ $${position.entryPrice.toFixed(4)}`,
+        logger.info(
+          `Position opened: ${position.side} ${position.quantity.toFixed(6)} ${position.symbol} @ $${position.entryPrice.toFixed(4)}`,
         );
 
         // Broadcast to dashboard
@@ -552,7 +552,7 @@ class CryptoScalpingBot {
         }
       }
     } catch (error) {
-      console.error(`❌ Error executing signal for ${pair}:`, error);
+      logger.error(`Error executing signal for ${pair}:`, { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     }
   }
 
@@ -566,7 +566,7 @@ class CryptoScalpingBot {
       try {
         await this.orderManager.closePosition(position.id, reason);
       } catch (error) {
-        console.error(`Error closing position ${position.id}:`, error);
+        logger.error(`Error closing position ${position.id}:`, { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       }
     }
   }
@@ -605,15 +605,15 @@ class CryptoScalpingBot {
     const riskHealth = this.riskManager.getRiskHealth();
 
     if (riskHealth.status === "CRITICAL") {
-      console.error("🚨 CRITICAL RISK LEVEL DETECTED");
-      console.error("Warnings:", riskHealth.warnings.join(", "));
+      logger.error("CRITICAL RISK LEVEL DETECTED");
+      logger.error(`Warnings: ${riskHealth.warnings.join(", ")}`);
 
       if (
         riskHealth.metrics.dailyPnlPercent <
         -config.trading.dailyLossLimit * 100
       ) {
-        console.error(
-          "🛑 Daily loss limit exceeded - triggering emergency stop",
+        logger.error(
+          "Daily loss limit exceeded - triggering emergency stop",
         );
         this.riskManager.triggerEmergencyStop("Daily loss limit exceeded");
         // Close all open positions to cut further losses immediately
@@ -666,13 +666,13 @@ async function main() {
 
   // Graceful shutdown handling
   process.on("SIGINT", async () => {
-    console.log("\n🛑 Received SIGINT, shutting down gracefully...");
+    logger.info("Received SIGINT, shutting down gracefully...");
     await bot.stop();
     process.exit(0);
   });
 
   process.on("SIGTERM", async () => {
-    console.log("\n🛑 Received SIGTERM, shutting down gracefully...");
+    logger.info("Received SIGTERM, shutting down gracefully...");
     await bot.stop();
     process.exit(0);
   });
@@ -681,7 +681,7 @@ async function main() {
     // Start the bot
     await bot.start();
   } catch (error) {
-    console.error("❌ Failed to start bot:", error);
+    logger.error("Failed to start bot:", { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     process.exit(1);
   }
 }
@@ -692,7 +692,7 @@ export { CryptoScalpingBot };
 // Run if this file is executed directly
 if (require.main === module) {
   main().catch((error) => {
-    console.error("❌ Unhandled error:", error);
+    logger.error("Unhandled error:", { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     process.exit(1);
   });
 }

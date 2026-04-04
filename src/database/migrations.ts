@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 import { DatabaseService } from '../database';
 import config from '../config';
+import { logger } from '../services/logger';
 
 /**
  * Migration utilities for database schema updates and data migrations
@@ -46,7 +47,7 @@ export class DatabaseMigrationService {
       return !latestMigration || latestMigration.version !== expectedVersion;
       
     } catch (error) {
-      console.warn('Error checking migration status:', error);
+      logger.warn('Error checking migration status:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       return false;
     }
   }
@@ -55,7 +56,7 @@ export class DatabaseMigrationService {
    * Migrate old data format to new schema
    */
   async migrateFromOldFormat(oldDataPath?: string): Promise<void> {
-    console.log('🔄 Starting database migration...');
+    logger.info('Starting database migration...');
 
     try {
       // Initialize new database
@@ -65,21 +66,21 @@ export class DatabaseMigrationService {
       const dataDir = oldDataPath || path.join(path.dirname(config.database.path), '../old_data');
       
       if (fs.existsSync(dataDir)) {
-        console.log(`📁 Found old data directory: ${dataDir}`);
+        logger.info(`Found old data directory: ${dataDir}`);
         await this.migrateFromFiles(dataDir);
       }
 
       // Look for old SQLite databases with different schema
       const oldDbPath = oldDataPath || config.database.path.replace('.db', '_old.db');
       if (fs.existsSync(oldDbPath)) {
-        console.log(`📁 Found old database: ${oldDbPath}`);
+        logger.info(`Found old database: ${oldDbPath}`);
         await this.migrateFromOldDatabase(oldDbPath);
       }
 
-      console.log('✅ Database migration completed successfully!');
+      logger.info('Database migration completed successfully!');
       
     } catch (error) {
-      console.error('❌ Migration failed:', error);
+      logger.error('Migration failed:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       throw error;
     }
   }
@@ -121,7 +122,7 @@ export class DatabaseMigrationService {
 
       for (const table of tables) {
         const tableName = table.name;
-        console.log(`📊 Migrating table: ${tableName}`);
+        logger.info(`Migrating table: ${tableName}`);
 
         if (tableName === 'trades' || tableName === 'trade_history') {
           await this.migrateOldTrades(oldDb, tableName);
@@ -139,7 +140,7 @@ export class DatabaseMigrationService {
    * Migrate trades from JSON file
    */
   private async migrateTrades(filePath: string): Promise<void> {
-    console.log(`📈 Migrating trades from: ${filePath}`);
+    logger.info(`Migrating trades from: ${filePath}`);
     
     const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     const trades = Array.isArray(data) ? data : data.trades || [];
@@ -171,18 +172,18 @@ export class DatabaseMigrationService {
         await this.dbService.saveTrade(newTrade);
         
       } catch (error) {
-        console.warn(`⚠️  Failed to migrate trade:`, trade, error);
+        logger.warn('Failed to migrate trade:', { trade, error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       }
     }
 
-    console.log(`✅ Migrated ${trades.length} trades`);
+    logger.info(`Migrated ${trades.length} trades`);
   }
 
   /**
    * Migrate portfolio data from JSON file
    */
   private async migratePortfolio(filePath: string): Promise<void> {
-    console.log(`💰 Migrating portfolio from: ${filePath}`);
+    logger.info(`Migrating portfolio from: ${filePath}`);
     
     const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     const snapshots = Array.isArray(data) ? data : data.snapshots || [];
@@ -208,18 +209,18 @@ export class DatabaseMigrationService {
         await this.dbService.updatePortfolio(newSnapshot);
         
       } catch (error) {
-        console.warn(`⚠️  Failed to migrate portfolio snapshot:`, snapshot, error);
+        logger.warn('Failed to migrate portfolio snapshot:', { snapshot, error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       }
     }
 
-    console.log(`✅ Migrated ${snapshots.length} portfolio snapshots`);
+    logger.info(`Migrated ${snapshots.length} portfolio snapshots`);
   }
 
   /**
    * Migrate signals from JSON file
    */
   private async migrateSignals(filePath: string): Promise<void> {
-    console.log(`📡 Migrating signals from: ${filePath}`);
+    logger.info(`Migrating signals from: ${filePath}`);
     
     const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     const signals = Array.isArray(data) ? data : data.signals || [];
@@ -242,11 +243,11 @@ export class DatabaseMigrationService {
         await this.dbService.saveSignal(newSignal);
         
       } catch (error) {
-        console.warn(`⚠️  Failed to migrate signal:`, signal, error);
+        logger.warn('Failed to migrate signal:', { signal, error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       }
     }
 
-    console.log(`✅ Migrated ${signals.length} signals`);
+    logger.info(`Migrated ${signals.length} signals`);
   }
 
   /**
@@ -280,11 +281,11 @@ export class DatabaseMigrationService {
         await this.dbService.saveTrade(newTrade);
         
       } catch (error) {
-        console.warn(`⚠️  Failed to migrate old trade:`, trade, error);
+        logger.warn('Failed to migrate old trade:', { trade, error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       }
     }
 
-    console.log(`✅ Migrated ${trades.length} trades from ${tableName}`);
+    logger.info(`Migrated ${trades.length} trades from ${tableName}`);
   }
 
   /**
@@ -314,11 +315,11 @@ export class DatabaseMigrationService {
         await this.dbService.updatePortfolio(newSnapshot);
         
       } catch (error) {
-        console.warn(`⚠️  Failed to migrate old portfolio:`, snapshot, error);
+        logger.warn('Failed to migrate old portfolio:', { snapshot, error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       }
     }
 
-    console.log(`✅ Migrated ${snapshots.length} portfolio snapshots from ${tableName}`);
+    logger.info(`Migrated ${snapshots.length} portfolio snapshots from ${tableName}`);
   }
 
   /**
@@ -330,7 +331,7 @@ export class DatabaseMigrationService {
     
     if (fs.existsSync(config.database.path)) {
       fs.copyFileSync(config.database.path, backupPath);
-      console.log(`📋 Pre-migration backup created: ${backupPath}`);
+      logger.info(`Pre-migration backup created: ${backupPath}`);
     }
     
     return backupPath;
@@ -450,15 +451,15 @@ async function runMigrationCLI() {
   const migration = new DatabaseMigrationService();
   
   try {
-    console.log('🔍 Checking if migration is needed...');
+    logger.info('Checking if migration is needed...');
     const needsMigration = await migration.checkMigrationNeeded();
     
     if (!needsMigration) {
-      console.log('✅ Database is up to date, no migration needed');
+      logger.info('Database is up to date, no migration needed');
       return;
     }
 
-    console.log('⚠️  Database migration required');
+    logger.warn('Database migration required');
     
     // Create backup
     await migration.createPreMigrationBackup();
@@ -469,21 +470,21 @@ async function runMigrationCLI() {
     // Validate results
     const validation = await migration.validateMigration();
     
-    console.log('\n📊 Migration Results:');
-    console.log(`Trades: ${validation.stats.trades}`);
-    console.log(`Signals: ${validation.stats.signals}`);
-    console.log(`Portfolio Snapshots: ${validation.stats.portfolioSnapshots}`);
-    console.log(`Performance Metrics: ${validation.stats.performanceMetrics}`);
+    logger.info('Migration Results:');
+    logger.info(`Trades: ${validation.stats.trades}`);
+    logger.info(`Signals: ${validation.stats.signals}`);
+    logger.info(`Portfolio Snapshots: ${validation.stats.portfolioSnapshots}`);
+    logger.info(`Performance Metrics: ${validation.stats.performanceMetrics}`);
     
     if (validation.errors.length > 0) {
-      console.log('\n⚠️  Validation Warnings:');
-      validation.errors.forEach(error => console.log(`  - ${error}`));
+      logger.warn('Validation Warnings:');
+      validation.errors.forEach(error => logger.warn(`  - ${error}`));
     }
     
-    console.log(validation.success ? '\n✅ Migration completed successfully!' : '\n❌ Migration completed with warnings');
+    logger.info(validation.success ? 'Migration completed successfully!' : 'Migration completed with warnings');
     
   } catch (error) {
-    console.error('❌ Migration failed:', error);
+    logger.error('Migration failed:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     process.exit(1);
   } finally {
     await migration.close();

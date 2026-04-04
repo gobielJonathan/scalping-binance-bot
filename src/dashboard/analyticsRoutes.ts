@@ -1,6 +1,7 @@
 import * as express from 'express';
 import { TradeAnalyticsService } from '../services/tradeAnalyticsService';
 import { DatabaseService } from '../database/databaseService';
+import { logger } from '../services/logger';
 
 const router = express.Router();
 const analyticsService = new TradeAnalyticsService();
@@ -54,7 +55,7 @@ router.get('/summary', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Analytics summary error:', error);
+    logger.error('Analytics summary error:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     res.status(500).json({ 
       error: 'Failed to generate analytics summary',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -86,7 +87,7 @@ router.get('/report', async (req, res) => {
     res.json(report);
     
   } catch (error) {
-    console.error('Analytics report error:', error);
+    logger.error('Analytics report error:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     res.status(500).json({ 
       error: 'Failed to generate analytics report',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -116,7 +117,7 @@ router.get('/performance/symbol', async (req, res) => {
     res.json(performance);
     
   } catch (error) {
-    console.error('Symbol performance error:', error);
+    logger.error('Symbol performance error:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     res.status(500).json({ 
       error: 'Failed to get symbol performance',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -146,7 +147,7 @@ router.get('/performance/time-of-day', async (req, res) => {
     res.json(performance);
     
   } catch (error) {
-    console.error('Time of day performance error:', error);
+    logger.error('Time of day performance error:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     res.status(500).json({ 
       error: 'Failed to get time of day performance',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -176,7 +177,7 @@ router.get('/performance/day-of-week', async (req, res) => {
     res.json(performance);
     
   } catch (error) {
-    console.error('Day of week performance error:', error);
+    logger.error('Day of week performance error:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     res.status(500).json({ 
       error: 'Failed to get day of week performance',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -208,7 +209,7 @@ router.get('/drawdown', async (req, res) => {
     res.json(report.drawdown);
     
   } catch (error) {
-    console.error('Drawdown analysis error:', error);
+    logger.error('Drawdown analysis error:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     res.status(500).json({ 
       error: 'Failed to get drawdown analysis',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -240,7 +241,7 @@ router.get('/streaks', async (req, res) => {
     res.json(report.streaks);
     
   } catch (error) {
-    console.error('Streak analysis error:', error);
+    logger.error('Streak analysis error:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     res.status(500).json({ 
       error: 'Failed to get streak analysis',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -272,7 +273,7 @@ router.get('/risk', async (req, res) => {
     res.json(report.risk);
     
   } catch (error) {
-    console.error('Risk metrics error:', error);
+    logger.error('Risk metrics error:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     res.status(500).json({ 
       error: 'Failed to get risk metrics',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -304,7 +305,7 @@ router.get('/trends', async (req, res) => {
     res.json(report.trends);
     
   } catch (error) {
-    console.error('Trend analysis error:', error);
+    logger.error('Trend analysis error:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     res.status(500).json({ 
       error: 'Failed to get trend analysis',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -346,7 +347,7 @@ router.post('/export', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Analytics export error:', error);
+    logger.error('Analytics export error:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     res.status(500).json({ 
       error: 'Failed to export analytics',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -458,7 +459,7 @@ router.get('/trades', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Trade history error:', error);
+    logger.error('Trade history error:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     res.status(500).json({ 
       error: 'Failed to get trade history',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -550,7 +551,7 @@ router.get('/stats', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Analytics stats error:', error);
+    logger.error('Analytics stats error:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     res.status(500).json({ 
       error: 'Failed to get analytics stats',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -571,7 +572,7 @@ router.delete('/cache', async (req, res) => {
       timestamp: Date.now()
     });
   } catch (error) {
-    console.error('Cache clear error:', error);
+    logger.error('Cache clear error:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     res.status(500).json({ 
       error: 'Failed to clear cache',
       message: error instanceof Error ? error.message : 'Unknown error'

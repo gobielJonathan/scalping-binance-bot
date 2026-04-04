@@ -5,6 +5,7 @@ import path from 'path';
 import config from '../config';
 import { DashboardData } from '../types';
 import detectPort from 'detect-port';
+import { logger } from '../services/logger';
 
 /**
  * Dashboard service for real-time monitoring
@@ -195,10 +196,10 @@ export class DashboardService {
    */
   private setupWebSocket(): void {
     this.io.on('connection', (socket) => {
-      console.log('Dashboard client connected:', socket.id);
+      logger.info(`Dashboard client connected: ${socket.id}`);
 
       socket.on('disconnect', () => {
-        console.log('Dashboard client disconnected:', socket.id);
+        logger.info(`Dashboard client disconnected: ${socket.id}`);
       });
 
       // Send initial data
@@ -258,7 +259,7 @@ export class DashboardService {
    */
   async start(): Promise<void> {
     if (this.isRunning) {
-      console.log('Dashboard is already running');
+      logger.info('Dashboard is already running');
       return;
     }
 
@@ -267,9 +268,9 @@ export class DashboardService {
     return new Promise((resolve, reject) => {
       this.server.listen(port, () => {
         this.isRunning = true;
-        console.log(`Dashboard server started on port ${port}`);
-        console.log(`Access dashboard at: http://localhost:${port}`);
-        console.log(`Access manual control at: http://localhost:${port}/control`);
+        logger.info(`Dashboard server started on port ${port}`);
+        logger.info(`Access dashboard at: http://localhost:${port}`);
+        logger.info(`Access manual control at: http://localhost:${port}/control`);
         resolve();
       });
 
@@ -288,7 +289,7 @@ export class DashboardService {
     return new Promise((resolve) => {
       this.server.close(() => {
         this.isRunning = false;
-        console.log('Dashboard server stopped');
+        logger.info('Dashboard server stopped');
         resolve();
       });
     });
@@ -347,7 +348,7 @@ export class DashboardService {
    * Handle manual control requests from WebSocket
    */
   private handleManualControl(socket: any, data: any): void {
-    console.log('Manual control request:', data);
+    logger.info('Manual control request', { data });
     
     // Emit response back to client
     socket.emit('manual-control-response', {
@@ -369,7 +370,7 @@ export class DashboardService {
    * Handle parameter update requests
    */
   private handleParameterUpdate(socket: any, data: any): void {
-    console.log('Parameter update request:', data);
+    logger.info('Parameter update request', { data });
     
     socket.emit('parameter-update-response', {
       success: true,
@@ -384,7 +385,7 @@ export class DashboardService {
    * Handle emergency stop requests
    */
   private handleEmergencyStop(socket: any, data: any): void {
-    console.log('Emergency stop request:', data);
+    logger.info('Emergency stop request', { data });
     
     socket.emit('emergency-stop-response', {
       success: true,

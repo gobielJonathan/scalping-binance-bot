@@ -4,6 +4,7 @@ import { TradeAnalytics, AnalyticsReport } from './tradeAnalyticsService';
 import * as fs from 'fs';
 import * as path from 'path';
 import moment from 'moment';
+import { logger } from './logger';
 
 export interface AnalyticsNotificationConfig {
   enabled: boolean;
@@ -124,7 +125,7 @@ export class AnalyticsNotificationService {
       await this.sendNotification('Daily Performance Report', this.formatDailyReport(dailyReport), dailyReport);
       
     } catch (error) {
-      console.error('Error sending daily report:', error);
+      logger.error('Error sending daily report:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       await this.sendNotification('Daily Report Error', 
         `Failed to generate daily report: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { type: 'error', error: error instanceof Error ? error.message : 'Unknown error' }
@@ -163,7 +164,7 @@ export class AnalyticsNotificationService {
       await this.sendNotification('Weekly Performance Report', this.formatWeeklyReport(weeklyReport), weeklyReport);
       
     } catch (error) {
-      console.error('Error sending weekly report:', error);
+      logger.error('Error sending weekly report:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     }
   }
 
@@ -209,7 +210,7 @@ export class AnalyticsNotificationService {
       });
       
     } catch (error) {
-      console.error('Error sending monthly report:', error);
+      logger.error('Error sending monthly report:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     }
   }
 
@@ -371,7 +372,7 @@ export class AnalyticsNotificationService {
       }
       
     } catch (error) {
-      console.error('Error checking real-time alerts:', error);
+      logger.error('Error checking real-time alerts:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     }
   }
 
@@ -417,7 +418,7 @@ export class AnalyticsNotificationService {
       fs.appendFileSync(filepath, logEntry);
       
     } catch (error) {
-      console.error('Error writing notification to file:', error);
+      logger.error('Error writing notification to file:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     }
   }
 
@@ -438,11 +439,11 @@ export class AnalyticsNotificationService {
       });
 
       if (!response.ok) {
-        console.error('Webhook notification failed:', response.statusText);
+        logger.error('Webhook notification failed:', { statusText: response.statusText });
       }
       
     } catch (error) {
-      console.error('Error sending webhook notification:', error);
+      logger.error('Error sending webhook notification:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     }
   }
 
@@ -451,7 +452,7 @@ export class AnalyticsNotificationService {
    */
   private async sendEmail(notification: any): Promise<void> {
     // This would be implemented with an email service like nodemailer
-    console.log('Email notification (not implemented):', notification.subject);
+    logger.info('Email notification (not implemented):', { subject: notification.subject });
   }
 
   // Report formatting methods

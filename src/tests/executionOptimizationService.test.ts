@@ -7,14 +7,14 @@ const mockBinanceService = {
   placeOrder: jest.fn(),
   getOrderBook: jest.fn(),
   isConnected: jest.fn().mockReturnValue(true)
-} as jest.Mocked<Partial<BinanceService>>;
+};
 
 describe('ExecutionOptimizationService', () => {
   let executionOptimizationService: ExecutionOptimizationService;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    executionOptimizationService = new ExecutionOptimizationService(mockBinanceService as BinanceService);
+    executionOptimizationService = new ExecutionOptimizationService(mockBinanceService as unknown as BinanceService);
   });
 
   describe('Order Optimization', () => {

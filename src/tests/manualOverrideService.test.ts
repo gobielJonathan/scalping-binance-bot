@@ -11,30 +11,30 @@ import { DashboardService } from '../dashboard/dashboardService';
 const mockRiskManager = {
   getPortfolio: jest.fn(),
   getRiskHealth: jest.fn()
-} as jest.Mocked<Partial<RiskManager>>;
+};
 
 const mockOrderManager = {
   closePosition: jest.fn(),
   getPortfolioSummary: jest.fn()
-} as jest.Mocked<Partial<OrderManager>>;
+};
 
 const mockEmergencyStopService = {
   isEmergencyStopActive: jest.fn(),
   manualEmergencyStop: jest.fn(),
   resetEmergencyStop: jest.fn(),
   getState: jest.fn()
-} as jest.Mocked<Partial<EmergencyStopService>>;
+};
 
 const mockExecutionOptimizationService = {
   getExecutionAnalytics: jest.fn(),
   updateConfig: jest.fn()
-} as jest.Mocked<Partial<ExecutionOptimizationService>>;
+};
 
 const mockDashboardService = {
   getApp: jest.fn(),
   broadcastSystemStatus: jest.fn(),
   broadcastTrade: jest.fn()
-} as jest.Mocked<Partial<DashboardService>>;
+};
 
 describe('ManualOverrideService', () => {
   let manualOverrideService: ManualOverrideService;
@@ -90,11 +90,11 @@ describe('ManualOverrideService', () => {
     });
 
     manualOverrideService = new ManualOverrideService(
-      mockRiskManager as RiskManager,
-      mockOrderManager as OrderManager,
-      mockEmergencyStopService as EmergencyStopService,
-      mockExecutionOptimizationService as ExecutionOptimizationService,
-      mockDashboardService as DashboardService
+      mockRiskManager as unknown as RiskManager,
+      mockOrderManager as unknown as OrderManager,
+      mockEmergencyStopService as unknown as EmergencyStopService,
+      mockExecutionOptimizationService as unknown as ExecutionOptimizationService,
+      mockDashboardService as unknown as DashboardService
     );
   });
 
@@ -104,7 +104,7 @@ describe('ManualOverrideService', () => {
 
   describe('Emergency Stop Endpoints', () => {
     test('should handle emergency stop request', async () => {
-      mockEmergencyStopService.manualEmergencyStop!.mockResolvedValue();
+      mockEmergencyStopService.manualEmergencyStop!.mockResolvedValue(undefined);
 
       const response = await request(app)
         .post('/api/manual/emergency-stop')

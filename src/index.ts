@@ -388,7 +388,7 @@ class CryptoScalpingBot {
 
       // Get data from MarketDataService if available, otherwise use cache
       if (this.marketDataService) {
-        candles = this.marketDataService.getCandles(pair, "1m", 500);
+        candles = this.marketDataService.getCandles(pair, "5m", 500);
         marketData = this.marketDataService.getMarketData(pair) || undefined;
       } else {
         candles = this.marketDataCache.get(pair) || [];
@@ -397,13 +397,22 @@ class CryptoScalpingBot {
         );
       }
 
-      if (!marketData || candles.length < 50) {
-        // Need more data for reliable signals
+      if (!marketData) {
         if (this.logger) {
-          this.logger.debug("Insufficient data for signal generation", {
+          this.logger.warn("No market data available for pair — waiting for ticker stream", {
+            pair,
+          });
+        }
+        return;
+      }
+
+      if (candles.length < 20) {
+        if (this.logger) {
+          this.logger.warn("Insufficient candles for signal generation", {
             pair,
             candleCount: candles.length,
-            hasMarketData: !!marketData,
+            required: 20,
+            interval: "5m",
           });
         }
         return;

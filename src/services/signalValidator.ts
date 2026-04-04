@@ -77,8 +77,8 @@ export class SignalValidator {
         { name: 'Strength is in valid range', passed: signal.strength >= 0 && signal.strength <= 100 },
         { name: 'Confidence is in valid range', passed: signal.confidence >= 0 && signal.confidence <= 100 },
         { name: 'Timestamp is recent', passed: Math.abs(signal.timestamp - Date.now()) < 60000 },
-        { name: 'Indicators are present', passed: signal.indicators && Object.keys(signal.indicators).length > 0 },
-        { name: 'Reason is provided', passed: signal.reason && signal.reason.length > 0 }
+        { name: 'Indicators are present', passed: !!(signal.indicators && Object.keys(signal.indicators).length > 0) },
+        { name: 'Reason is provided', passed: !!(signal.reason && signal.reason.length > 0) }
       ];
 
       return {

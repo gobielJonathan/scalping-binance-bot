@@ -1,5 +1,5 @@
 import Binance, { OrderType, OrderSide, TimeInForce } from 'binance-api-node';
-import * as WebSocket from 'ws';
+import WebSocket from 'ws';
 import config from '../config/index';
 import { 
   TradingPair, 
@@ -580,7 +580,8 @@ export class BinanceService {
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        const ws = new (WebSocket as any)(url);
+        
+        const ws = new WebSocket(url);
         this.wsConnections.set(streamName, ws);
         this.wsReconnectAttempts.set(streamName, 0);
 

@@ -178,7 +178,7 @@ export class MarketDataService extends EventEmitter {
   public getMarketData(symbol: string): MarketData | null {
     const data = this.marketDataCache.get(symbol);
     if (!data) {
-      logger.debug('No market data available', { symbol });
+      logger.warn('No market data available — ticker stream may not have delivered yet', { symbol });
       return null;
     }
     

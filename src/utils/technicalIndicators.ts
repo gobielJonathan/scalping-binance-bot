@@ -265,7 +265,7 @@ export class TechnicalIndicators {
       
       const k = highestHigh !== lowestLow
         ? ((current.close - lowestLow) / (highestHigh - lowestLow)) * 100
-        : 50;
+        : NaN;
       kValues.push(k);
     }
     
@@ -342,7 +342,7 @@ export class TechnicalIndicators {
       
       const williamsR = highestHigh !== lowestLow
         ? ((highestHigh - current.close) / (highestHigh - lowestLow)) * -100
-        : -50;
+        : NaN;
       williamsRValues.push(williamsR);
     }
     

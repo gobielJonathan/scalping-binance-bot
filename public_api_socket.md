@@ -228,7 +228,7 @@ Supported `format` values: `json` | `csv` | `xlsx` | `pdf`
 
 ### Manual Override
 
-> All manual override `POST` endpoints require a `userId` field in the request body. The user must be in the authorised user list (`admin`, `trader1` by default). Unauthorised requests return `401`.
+> All manual override `POST` endpoints require a `userId` field in the request body. The user must be in the authorized user list (`admin`, `trader1` by default). Unauthorized requests return `401`.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -260,7 +260,7 @@ Supported `format` values: `json` | `csv` | `xlsx` | `pdf`
 ```json
 {
   "userId": "admin",
-  "reason": "Market conditions normalised"
+  "reason": "Market conditions normalized"
 }
 ```
 

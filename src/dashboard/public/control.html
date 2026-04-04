@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Bot - Manual Control Panel</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: white;
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        .status-indicator {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            color: white;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .status-trading {
+            background: #10b981;
+        }
+
+        .status-paused {
+            background: #f59e0b;
+        }
+
+        .status-emergency {
+            background: #ef4444;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .control-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .control-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #374151;
+        }
+
+        .emergency-controls {
+            border-left: 4px solid #ef4444;
+        }
+
+        .trading-controls {
+            border-left: 4px solid #10b981;
+        }
+
+        .parameters-controls {
+            border-left: 4px solid #3b82f6;
+        }
+
+        .positions-controls {
+            border-left: 4px solid #f59e0b;
+        }
+
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+            margin: 0.25rem;
+            font-size: 0.9rem;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+        }
+
+        .btn-danger:hover {
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-warning {
+            background: #f59e0b;
+        }
+
+        .btn-warning:hover {
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+        }
+
+        .btn-success {
+            background: #10b981;
+        }
+
+        .btn-success:hover {
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+
+        .input-group {
+            margin: 1rem 0;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #374151;
+            font-weight: 500;
+        }
+
+        .input-group input,
+        .input-group select,
+        .input-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .input-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .parameter-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: #f9fafb;
+            border-radius: 6px;
+            margin: 0.5rem 0;
+        }
+
+        .parameter-name {
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .parameter-value {
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            background: #e5e7eb;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        .log-area {
+            background: #1f2937;
+            color: #e5e7eb;
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 0.8rem;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+
+        .log-entry {
+            margin-bottom: 0.5rem;
+            padding: 0.25rem 0;
+        }
+
+        .log-timestamp {
+            color: #9ca3af;
+        }
+
+        .log-emergency {
+            color: #fca5a5;
+        }
+
+        .log-warning {
+            color: #fcd34d;
+        }
+
+        .log-success {
+            color: #6ee7b7;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-weight: 500;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+
+        .alert-danger {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+
+        .alert-warning {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fcd34d;
+        }
+
+        .positions-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .positions-table th,
+        .positions-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .positions-table th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .profit {
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        .loss {
+            color: #ef4444;
+            font-weight: 600;
+        }
+
+        .btn-small {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🤖 Trading Bot Control Panel</h1>
+        <div id="systemStatus" class="status-indicator status-trading">
+            Trading Active
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div id="alerts"></div>
+
+        <div class="control-grid">
+            <!-- Emergency Controls -->
+            <div class="control-card emergency-controls">
+                <h3 class="card-title">🚨 Emergency Controls</h3>
+                <div class="input-group">
+                    <label for="emergencyReason">Emergency Reason:</label>
+                    <textarea id="emergencyReason" placeholder="Describe the emergency situation..."></textarea>
+                </div>
+                <button class="btn btn-danger" onclick="emergencyStop()">
+                    🛑 EMERGENCY STOP
+                </button>
+                <button class="btn btn-success" onclick="resumeTrading()">
+                    ▶️ Resume Trading
+                </button>
+            </div>
+
+            <!-- Trading Controls -->
+            <div class="control-card trading-controls">
+                <h3 class="card-title">📈 Trading Controls</h3>
+                <div class="input-group">
+                    <label for="pauseDuration">Pause Duration (seconds):</label>
+                    <input type="number" id="pauseDuration" value="300" min="1">
+                </div>
+                <div class="input-group">
+                    <label for="pauseReason">Reason:</label>
+                    <input type="text" id="pauseReason" placeholder="Reason for pause...">
+                </div>
+                <button class="btn btn-warning" onclick="pauseTrading()">
+                    ⏸️ Pause Trading
+                </button>
+                <button class="btn btn-danger" onclick="closeAllPositions()">
+                    ❌ Close All Positions
+                </button>
+            </div>
+
+            <!-- Parameter Controls -->
+            <div class="control-card parameters-controls">
+                <h3 class="card-title">⚙️ Strategy Parameters</h3>
+                <div id="parametersList">
+                    <!-- Parameters will be loaded dynamically -->
+                </div>
+                <div class="input-group">
+                    <label for="parameterSelect">Parameter:</label>
+                    <select id="parameterSelect">
+                        <option value="">Select parameter...</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="newValue">New Value:</label>
+                    <input type="text" id="newValue" placeholder="Enter new value...">
+                </div>
+                <button class="btn btn-success" onclick="updateParameter()">
+                    💾 Update Parameter
+                </button>
+            </div>
+
+            <!-- Position Controls -->
+            <div class="control-card positions-controls">
+                <h3 class="card-title">🎯 Position Management</h3>
+                <div style="max-height: 300px; overflow-y: auto;">
+                    <table class="positions-table">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Side</th>
+                                <th>Size</th>
+                                <th>P&L</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="positionsTableBody">
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: #6b7280;">
+                                    No open positions
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="control-card">
+            <h3 class="card-title">📋 Activity Log</h3>
+            <div id="activityLog" class="log-area">
+                <div class="log-entry">
+                    <span class="log-timestamp">[2024-01-01 12:00:00]</span>
+                    <span class="log-success">Control panel initialized</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        
+        // Global variables
+        let currentParameters = {};
+        let openPositions = [];
+        let systemStatus = 'trading';
+        
+        // Initialize
+        socket.on('connect', () => {
+            addLogEntry('Connected to trading bot', 'success');
+            loadSystemStatus();
+            loadParameters();
+            loadPositions();
+        });
+
+        // Socket event handlers
+        socket.on('emergency-alert', (data) => {
+            showAlert(`Emergency: ${data.reason}`, 'danger');
+            addLogEntry(`🚨 EMERGENCY: ${data.reason}`, 'emergency');
+            updateSystemStatus('emergency');
+        });
+
+        socket.on('system-status', (data) => {
+            if (data.tradingPaused) {
+                updateSystemStatus('paused');
+                showAlert('Trading has been paused', 'warning');
+            } else if (data.emergencyStopActive) {
+                updateSystemStatus('emergency');
+            } else {
+                updateSystemStatus('trading');
+                showAlert('Trading resumed', 'success');
+            }
+        });
+
+        socket.on('portfolio-update', (data) => {
+            updatePositionsTable(data.openPositions);
+        });
+
+        socket.on('manual-override', (data) => {
+            addLogEntry(`Manual override: ${data.action} by ${data.user}`, 'warning');
+        });
+
+        // Control functions
+        function emergencyStop() {
+            const reason = document.getElementById('emergencyReason').value || 'Manual emergency stop';
+            
+            if (confirm('Are you sure you want to trigger an emergency stop?')) {
+                fetch('/api/manual/emergency-stop', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        reason: reason,
+                        userId: 'admin'
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert('Emergency stop executed successfully', 'success');
+                        addLogEntry(`🛑 Emergency stop: ${reason}`, 'emergency');
+                    } else {
+                        showAlert('Failed to execute emergency stop', 'danger');
+                    }
+                })
+                .catch(error => {
+                    showAlert('Error executing emergency stop', 'danger');
+                    console.error('Error:', error);
+                });
+            }
+        }
+
+        function resumeTrading() {
+            const reason = 'Manual resume from control panel';
+            
+            if (confirm('Resume trading operations?')) {
+                fetch('/api/manual/resume-trading', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        reason: reason,
+                        userId: 'admin'
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert('Trading resumed successfully', 'success');
+                        addLogEntry(`▶️ Trading resumed: ${reason}`, 'success');
+                    } else {
+                        showAlert('Failed to resume trading', 'danger');
+                    }
+                })
+                .catch(error => {
+                    showAlert('Error resuming trading', 'danger');
+                    console.error('Error:', error);
+                });
+            }
+        }
+
+        function pauseTrading() {
+            const duration = parseInt(document.getElementById('pauseDuration').value);
+            const reason = document.getElementById('pauseReason').value || 'Manual pause';
+            
+            fetch('/api/manual/pause-trading', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    duration: duration,
+                    reason: reason,
+                    userId: 'admin'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(`Trading paused for ${duration} seconds`, 'warning');
+                    addLogEntry(`⏸️ Trading paused: ${reason} (${duration}s)`, 'warning');
+                } else {
+                    showAlert('Failed to pause trading', 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('Error pausing trading', 'danger');
+                console.error('Error:', error);
+            });
+        }
+
+        function closeAllPositions() {
+            const reason = 'Manual close all from control panel';
+            
+            if (confirm('Close ALL open positions? This cannot be undone.')) {
+                fetch('/api/manual/close-all-positions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        reason: reason,
+                        userId: 'admin'
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert(`Closed ${data.closedPositions} positions`, 'success');
+                        addLogEntry(`❌ Closed all positions: ${data.closedPositions} positions`, 'warning');
+                    } else {
+                        showAlert('Failed to close positions', 'danger');
+                    }
+                })
+                .catch(error => {
+                    showAlert('Error closing positions', 'danger');
+                    console.error('Error:', error);
+                });
+            }
+        }
+
+        function updateParameter() {
+            const parameterKey = document.getElementById('parameterSelect').value;
+            const newValue = document.getElementById('newValue').value;
+            
+            if (!parameterKey || !newValue) {
+                showAlert('Please select a parameter and enter a new value', 'warning');
+                return;
+            }
+            
+            fetch('/api/manual/adjust-parameter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    parameterKey: parameterKey,
+                    newValue: parseValue(newValue),
+                    reason: `Manual update from control panel`,
+                    userId: 'admin'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(`Parameter ${parameterKey} updated successfully`, 'success');
+                    addLogEntry(`⚙️ Parameter updated: ${parameterKey} = ${newValue}`, 'success');
+                    loadParameters(); // Refresh parameters display
+                } else {
+                    showAlert(data.error || 'Failed to update parameter', 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('Error updating parameter', 'danger');
+                console.error('Error:', error);
+            });
+        }
+
+        function closePosition(positionId) {
+            const reason = 'Manual close from control panel';
+            
+            if (confirm('Close this position?')) {
+                fetch('/api/manual/close-position', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        positionId: positionId,
+                        reason: reason,
+                        userId: 'admin'
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert('Position closed successfully', 'success');
+                        addLogEntry(`🎯 Position closed: ${positionId}`, 'success');
+                        loadPositions(); // Refresh positions
+                    } else {
+                        showAlert('Failed to close position', 'danger');
+                    }
+                })
+                .catch(error => {
+                    showAlert('Error closing position', 'danger');
+                    console.error('Error:', error);
+                });
+            }
+        }
+
+        // Utility functions
+        function showAlert(message, type) {
+            const alertsDiv = document.getElementById('alerts');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            
+            alertsDiv.appendChild(alert);
+            
+            // Remove alert after 5 seconds
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        function addLogEntry(message, type = 'info') {
+            const logArea = document.getElementById('activityLog');
+            const timestamp = new Date().toLocaleString();
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `
+                <span class="log-timestamp">[${timestamp}]</span>
+                <span class="log-${type}">${message}</span>
+            `;
+            
+            logArea.appendChild(logEntry);
+            logArea.scrollTop = logArea.scrollHeight;
+            
+            // Keep only last 100 log entries
+            const entries = logArea.children;
+            if (entries.length > 100) {
+                entries[0].remove();
+            }
+        }
+
+        function updateSystemStatus(status) {
+            systemStatus = status;
+            const statusElement = document.getElementById('systemStatus');
+            
+            switch (status) {
+                case 'trading':
+                    statusElement.textContent = 'Trading Active';
+                    statusElement.className = 'status-indicator status-trading';
+                    break;
+                case 'paused':
+                    statusElement.textContent = 'Trading Paused';
+                    statusElement.className = 'status-indicator status-paused';
+                    break;
+                case 'emergency':
+                    statusElement.textContent = 'EMERGENCY STOP';
+                    statusElement.className = 'status-indicator status-emergency';
+                    break;
+            }
+        }
+
+        function parseValue(value) {
+            // Try to parse as number first
+            if (!isNaN(value) && value.trim() !== '') {
+                return parseFloat(value);
+            }
+            
+            // Try to parse as boolean
+            if (value.toLowerCase() === 'true') return true;
+            if (value.toLowerCase() === 'false') return false;
+            
+            // Return as string
+            return value;
+        }
+
+        function loadSystemStatus() {
+            fetch('/api/manual/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.emergencyStopActive) {
+                        updateSystemStatus('emergency');
+                    } else if (data.tradingPaused) {
+                        updateSystemStatus('paused');
+                    } else {
+                        updateSystemStatus('trading');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading system status:', error);
+                });
+        }
+
+        function loadParameters() {
+            fetch('/api/manual/parameters')
+                .then(response => response.json())
+                .then(data => {
+                    currentParameters = {};
+                    const parametersList = document.getElementById('parametersList');
+                    const parameterSelect = document.getElementById('parameterSelect');
+                    
+                    parametersList.innerHTML = '';
+                    parameterSelect.innerHTML = '<option value="">Select parameter...</option>';
+                    
+                    data.forEach(param => {
+                        currentParameters[param.key] = param;
+                        
+                        // Add to parameters list
+                        const paramDiv = document.createElement('div');
+                        paramDiv.className = 'parameter-item';
+                        paramDiv.innerHTML = `
+                            <span class="parameter-name">${param.key}</span>
+                            <span class="parameter-value">${param.currentValue}</span>
+                        `;
+                        parametersList.appendChild(paramDiv);
+                        
+                        // Add to select dropdown
+                        const option = document.createElement('option');
+                        option.value = param.key;
+                        option.textContent = `${param.key} (${param.currentValue})`;
+                        parameterSelect.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading parameters:', error);
+                });
+        }
+
+        function loadPositions() {
+            // This would typically load from the API
+            // For now, we'll use the socket data when available
+            fetch('/api/portfolio')
+                .then(response => response.json())
+                .then(data => {
+                    updatePositionsTable(data.openPositions || []);
+                })
+                .catch(error => {
+                    console.error('Error loading positions:', error);
+                });
+        }
+
+        function updatePositionsTable(positions) {
+            const tbody = document.getElementById('positionsTableBody');
+            
+            if (!positions || positions.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #6b7280;">
+                            No open positions
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tbody.innerHTML = positions.map(pos => `
+                <tr>
+                    <td>${pos.symbol}</td>
+                    <td>${pos.side}</td>
+                    <td>${pos.quantity}</td>
+                    <td class="${pos.pnl >= 0 ? 'profit' : 'loss'}">
+                        $${pos.pnl.toFixed(2)} (${pos.pnlPercent.toFixed(2)}%)
+                    </td>
+                    <td>
+                        <button class="btn btn-danger btn-small" onclick="closePosition('${pos.id}')">
+                            Close
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Auto-refresh data every 5 seconds
+        setInterval(() => {
+            if (socket.connected) {
+                loadSystemStatus();
+                loadPositions();
+            }
+        }, 5000);
+    </script>
+</body>
+</html>

@@ -8,7 +8,6 @@ import detectPort from 'detect-port';
 import { logger } from '../services/logger';
 import { MarketDataService } from '../services/marketDataService';
 import analyticsRoutes from './analyticsRoutes';
-import performanceProjectionService from '../services/performanceProjectionService';
 
 /**
  * Dashboard service for real-time monitoring
@@ -67,8 +66,9 @@ export class DashboardService {
     });
 
     // Performance projections endpoint for 1:2 risk-reward ratio
-    this.app.get('/api/performance/projections', (_req, res) => {
+    this.app.get('/api/performance/projections', async (_req, res) => {
       try {
+        const { default: performanceProjectionService } = await import('../services/performanceProjectionService');
         const projections = performanceProjectionService.getFormattedSummary();
         const comparison = performanceProjectionService.getPerformanceComparison();
         const validation = performanceProjectionService.validateConfiguration();
@@ -80,6 +80,7 @@ export class DashboardService {
           timestamp: Date.now()
         });
       } catch (error) {
+        logger.error('Performance projections endpoint failed:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
         res.status(500).json({ error: 'Failed to get performance projections' });
       }
     });

@@ -226,8 +226,8 @@ async function demonstrateIntegration(): Promise<void> {
     if (config.trading.mode === 'paper') {
       await bot.placeTradeOrder({
         symbol: 'BTCUSDT',
-        side: 'BUY',
-        type: 'MARKET',
+        side: 'BUY' as const,
+        type: 'MARKET' as const,
         quantity: 0.001
       });
     }

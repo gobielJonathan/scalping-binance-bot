@@ -1,4 +1,5 @@
 import { BinanceService } from '../services/binanceService';
+import { OrderRequest } from '../types';
 
 /**
  * Example usage of the BinanceService
@@ -21,13 +22,14 @@ async function demonstrateBinanceService() {
     // In paper trading mode, demonstrate order simulation
     console.log('📄 Demonstrating paper trading...');
     
-    const paperOrder = await binanceService.placeOrder({
+    const paperOrderRequest: OrderRequest = {
       symbol: 'BTCUSDT',
       side: 'BUY',
       type: 'MARKET',
       quantity: 0.001,
       price: 50000
-    });
+    };
+    const paperOrder = await binanceService.placeOrder(paperOrderRequest);
 
     console.log('📊 Paper order result:', {
       orderId: paperOrder.orderId,

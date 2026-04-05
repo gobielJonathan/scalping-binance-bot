@@ -9,21 +9,13 @@ import {
   DatabaseSignal,
   DatabasePerformanceMetrics,
   DatabaseConfig,
-  DatabaseQuery,
   DatabaseTransactionCallback,
-  DatabaseExportOptions,
-  TradingSignal,
-  TradePosition,
-  Portfolio,
-  TechnicalIndicators
-} from '../types';
+  DatabaseExportOptions} from '../types';
 
 export class DatabaseService {
   private db: sqlite3.Database | null = null;
   private dbPath: string;
   private isInitialized: boolean = false;
-  private connectionPool: sqlite3.Database[] = [];
-  private readonly maxPoolSize = 5;
 
   constructor() {
     this.dbPath = path.resolve(config.database.path);
@@ -854,7 +846,7 @@ export class DatabaseService {
     return exportPath;
   }
 
-  private async exportToSql(exportPath: string, options: DatabaseExportOptions): Promise<string> {
+  private async exportToSql(exportPath: string, _options: DatabaseExportOptions): Promise<string> {
     const backup = await this.backupDatabase(exportPath);
     return backup;
   }

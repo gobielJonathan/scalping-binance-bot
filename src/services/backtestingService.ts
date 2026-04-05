@@ -369,7 +369,7 @@ export class BacktestingEngine {
   /**
    * Update open positions with current market price
    */
-  private updateOpenPositions(currentPrice: number, timestamp: number): void {
+  private updateOpenPositions(currentPrice: number, _timestamp: number): void {
     for (const position of this.openPositions.values()) {
       position.currentPrice = currentPrice;
       

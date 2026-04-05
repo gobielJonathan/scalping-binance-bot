@@ -706,7 +706,7 @@ export class TradeAnalyticsService {
     };
   }
 
-  private async generateInsights(trades: DatabaseTrade[], summary: TradeAnalytics, risk: RiskMetrics): Promise<string[]> {
+  private async generateInsights(_trades: DatabaseTrade[], summary: TradeAnalytics, risk: RiskMetrics): Promise<string[]> {
     const insights: string[] = [];
 
     if (summary.winRate > 60) {
@@ -732,7 +732,7 @@ export class TradeAnalyticsService {
     return insights;
   }
 
-  private async generateWarnings(trades: DatabaseTrade[], summary: TradeAnalytics, risk: RiskMetrics): Promise<string[]> {
+  private async generateWarnings(_trades: DatabaseTrade[], summary: TradeAnalytics, risk: RiskMetrics): Promise<string[]> {
     const warnings: string[] = [];
 
     if (summary.winRate < 30) {

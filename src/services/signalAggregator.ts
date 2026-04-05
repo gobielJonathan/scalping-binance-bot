@@ -4,7 +4,6 @@ import {
   StrategyPerformance,
   SignalFilters,
   SignalHistory,
-  MarketRegime,
   Candle,
   MarketData
 } from '../types';
@@ -22,7 +21,6 @@ export class SignalAggregator {
   private signalHistory: SignalHistory[] = [];
   private recentSignals: Map<string, TradingSignal[]> = new Map(); // symbol -> signals
   private maxSignalsPerSymbol = 10;
-  private maxHistorySize = 1000;
 
   constructor(customLogger?: typeof logger) {
     this.logger = customLogger || logger;
@@ -107,7 +105,6 @@ export class SignalAggregator {
     // Classify signals by type
     const buySignals = sourceSignals.filter(s => s.type === 'BUY');
     const sellSignals = sourceSignals.filter(s => s.type === 'SELL');
-    const holdSignals = sourceSignals.filter(s => s.type === 'HOLD');
 
     // Determine conflicts
     if (buySignals.length > 0 && sellSignals.length > 0) {
@@ -365,7 +362,7 @@ export class SignalAggregator {
   /**
    * Enhance signal with additional metadata
    */
-  private enhanceSignal(signal: TradingSignal, aggregationMethod: string): TradingSignal {
+  private enhanceSignal(signal: TradingSignal, _aggregationMethod: string): TradingSignal {
     const enhanced = { ...signal };
     
     // Add aggregation-specific enhancements
@@ -531,10 +528,6 @@ export class SignalAggregator {
     performance.lastUpdated = Date.now();
     
     // Update recent performance counters
-    const now = Date.now();
-    const oneHourAgo = now - 60 * 60 * 1000;
-    const oneDayAgo = now - 24 * 60 * 60 * 1000;
-    const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
     
     // Count recent signals (simplified - in production this would query a database)
     performance.recentPerformance.signals1h++;
@@ -687,7 +680,7 @@ export class SignalAggregator {
   /**
    * Create default HOLD signal
    */
-  private createDefaultHoldSignal(symbol: string, marketData: MarketData): TradingSignal {
+  private createDefaultHoldSignal(_symbol: string, marketData: MarketData): TradingSignal {
     return {
       type: 'HOLD',
       strength: 0,

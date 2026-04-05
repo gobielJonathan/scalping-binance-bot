@@ -71,14 +71,10 @@ export interface MarketStructure {
 }
 
 export class PatternRecognizer {
-  private lookbackPeriods: number;
   private minPatternLength: number;
-  private maxPatternLength: number;
 
-  constructor(lookbackPeriods: number = 100, minPatternLength: number = 3, maxPatternLength: number = 20) {
-    this.lookbackPeriods = lookbackPeriods;
+  constructor(_lookbackPeriods: number = 100, minPatternLength: number = 3, _maxPatternLength: number = 20) {
     this.minPatternLength = minPatternLength;
-    this.maxPatternLength = maxPatternLength;
   }
 
   /**
@@ -136,9 +132,6 @@ export class PatternRecognizer {
    */
   public identifyScalpingPatterns(candles: Candle[]): ScalpingPattern[] {
     const patterns: ScalpingPattern[] = [];
-    const highs = candles.map(c => c.high);
-    const lows = candles.map(c => c.low);
-    const closes = candles.map(c => c.close);
 
     for (let i = this.minPatternLength; i < candles.length - this.minPatternLength; i++) {
       // Flag patterns
@@ -176,7 +169,6 @@ export class PatternRecognizer {
     const levels: SupportResistanceLevel[] = [];
     const highs = candles.map(c => c.high);
     const lows = candles.map(c => c.low);
-    const volumes = candles.map(c => c.volume);
     const currentPrice = candles[candles.length - 1].close;
 
     // Find swing highs and lows
@@ -293,8 +285,6 @@ export class PatternRecognizer {
    * Analyze market structure
    */
   public analyzeMarketStructure(candles: Candle[]): MarketStructure {
-    const highs = candles.map(c => c.high);
-    const lows = candles.map(c => c.low);
     
     const swingHighs = this.findSwingHighs(candles);
     const swingLows = this.findSwingLows(candles);
@@ -505,8 +495,6 @@ export class PatternRecognizer {
     const firstBearish = first.close < first.open;
     const secondSmall = Math.abs(second.close - second.open) < Math.abs(first.close - first.open) * 0.5;
     const thirdBullish = third.close > third.open;
-    const gapDown = second.high < first.low;
-    const gapUp = third.open > second.high;
 
     if (firstBearish && secondSmall && thirdBullish && third.close > (first.open + first.close) / 2) {
       return {
@@ -637,31 +625,31 @@ export class PatternRecognizer {
     };
   }
 
-  private detectPennantPattern(candles: Candle[], centerIndex: number): ScalpingPattern | null {
+  private detectPennantPattern(_candles: Candle[], _centerIndex: number): ScalpingPattern | null {
     // Similar to flag but with converging trendlines
     // Implementation would be similar to flag but checking for converging highs and lows
     return null; // Placeholder
   }
 
-  private detectTrianglePattern(candles: Candle[], centerIndex: number): ScalpingPattern | null {
+  private detectTrianglePattern(_candles: Candle[], _centerIndex: number): ScalpingPattern | null {
     // Ascending, descending, or symmetrical triangles
     // Implementation would analyze trendline convergence
     return null; // Placeholder
   }
 
-  private detectRectanglePattern(candles: Candle[], centerIndex: number): ScalpingPattern | null {
+  private detectRectanglePattern(_candles: Candle[], _centerIndex: number): ScalpingPattern | null {
     // Horizontal support and resistance
     // Implementation would find parallel horizontal levels
     return null; // Placeholder
   }
 
-  private detectWedgePattern(candles: Candle[], centerIndex: number): ScalpingPattern | null {
+  private detectWedgePattern(_candles: Candle[], _centerIndex: number): ScalpingPattern | null {
     // Rising or falling wedge patterns
     // Implementation would analyze converging trendlines with specific characteristics
     return null; // Placeholder
   }
 
-  private detectChannelPattern(candles: Candle[], centerIndex: number): ScalpingPattern | null {
+  private detectChannelPattern(_candles: Candle[], _centerIndex: number): ScalpingPattern | null {
     // Parallel channel patterns
     // Implementation would find parallel trend lines
     return null; // Placeholder
@@ -738,7 +726,7 @@ export class PatternRecognizer {
     return touchScore + volumeScore + ageScore;
   }
 
-  private calculateBreakoutProbability(candles: Candle[], level: number, type: 'support' | 'resistance'): number {
+  private calculateBreakoutProbability(candles: Candle[], level: number, _type: 'support' | 'resistance'): number {
     const currentPrice = candles[candles.length - 1].close;
     const distance = Math.abs(currentPrice - level) / level;
     
@@ -834,7 +822,6 @@ export class PatternRecognizer {
   private detectStructureBreak(candles: Candle[], highs: SupportResistanceLevel[], lows: SupportResistanceLevel[]): boolean {
     if (candles.length < 20) return false;
     
-    const currentPrice = candles[candles.length - 1].close;
     const recentHigh = Math.max(...candles.slice(-10).map(c => c.high));
     const recentLow = Math.min(...candles.slice(-10).map(c => c.low));
     

@@ -1,6 +1,5 @@
 import simpleLogger from 'simple-node-logger';
 import fs from 'fs';
-import path from 'path';
 import config from '../config';
 import { LogContext, TradeLogEntry } from '../types';
 

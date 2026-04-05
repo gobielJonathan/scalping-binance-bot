@@ -1,5 +1,5 @@
 import { SignalAggregator } from './signalAggregator';
-import { TradingSignal, SignalHistory, StrategyPerformance } from '../types';
+import { TradingSignal, SignalHistory } from '../types';
 import logger from './logger';
 import { EventEmitter } from 'events';
 
@@ -103,7 +103,6 @@ export class SignalMonitor extends EventEmitter {
     const track = this.activeSignals.get(signalId);
     if (!track) return;
 
-    const previousPrice = track.currentPrice;
     track.currentPrice = currentPrice;
     track.lastUpdate = Date.now();
 
@@ -320,7 +319,6 @@ export class SignalMonitor extends EventEmitter {
    * Analyze overall performance
    */
   private analyzePerformance(): void {
-    const strategyPerformances = this.signalAggregator.getStrategyPerformance() as StrategyPerformance[];
     const signalHistory = this.signalAggregator.getSignalHistory({ limit: 100 });
     
     // Calculate recent performance metrics

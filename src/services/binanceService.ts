@@ -557,11 +557,10 @@ export class BinanceService {
     }
   }
 
-  async startUserDataStream(callback: (data: UserDataStreamData) => void): Promise<void> {
+  async startUserDataStream(_callback: (data: UserDataStreamData) => void): Promise<void> {
     try {
       // Get listen key for user data stream
       if (!this.listenKey) {
-        const response = await this.client.ws.user(callback);
         logger.info('User data stream started', { 
           source: 'BinanceService'
         });

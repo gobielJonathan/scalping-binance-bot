@@ -1,7 +1,7 @@
 import { ScalpingStrategy } from '../strategies/scalpingStrategy';
 import { SignalAggregator } from '../services/signalAggregator';
 import { TechnicalIndicators } from '../utils/technicalIndicators';
-import { TradingSignal, Candle, MarketData, SignalHistory } from '../types';
+import { Candle, MarketData } from '../types';
 import logger from '../services/logger';
 
 /**
@@ -336,15 +336,8 @@ export class SignalValidator {
       const originalSignal = this.scalpingStrategy.generateSignal(testCandles, testMarketData);
       
       // Create an old signal (simulate time passage)
-      const oldSignal = {
-        ...originalSignal,
-        timestamp: Date.now() - 10 * 60 * 1000 // 10 minutes old
-      };
 
       // Test if signal filtering handles old signals
-      const filters = {
-        maxAge: 5 * 60 * 1000 // 5 minutes
-      };
 
       // The old signal should be filtered out
       const checks = [

@@ -88,9 +88,6 @@ export class VolumeAnalyzer {
     }
 
     const volumes = candles.map(c => c.volume);
-    const prices = candles.map(c => c.close);
-    const highs = candles.map(c => c.high);
-    const lows = candles.map(c => c.low);
 
     const currentVolume = volumes[volumes.length - 1];
     
@@ -201,7 +198,7 @@ export class VolumeAnalyzer {
 
       // Unusual transaction size (approximation)
       const avgTransactionSize = currentVolume / (candles[i].trades || 1);
-      const normalTransactionSize = avgVolume / (recentVolumes.reduce((sum, vol, idx) => 
+      const normalTransactionSize = avgVolume / (recentVolumes.reduce((sum, _vol, idx) => 
         sum + (candles[i - 20 + idx].trades || 1), 0) / 20);
       
       if (avgTransactionSize > normalTransactionSize * 5) {
@@ -303,8 +300,6 @@ export class VolumeAnalyzer {
     const breakouts: VolumeBreakout[] = [];
     const volumes = candles.map(c => c.volume);
     const prices = candles.map(c => c.close);
-    const obv = this.calculateOBV(candles);
-    const accumDist = this.calculateAccumDistLine(candles);
 
     for (let i = 20; i < candles.length - 1; i++) {
       const volumeWindow = volumes.slice(i - 20, i);

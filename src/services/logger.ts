@@ -60,9 +60,10 @@ class Logger {
     if (metadata?.performance) {
       formattedMessage += ` (${metadata.performance.duration}ms)`;
     }
+    if(isObj(metadata)) {
+      formattedMessage +=  JSON.stringify(metadata, null, 2) + '\n';
+    }
     
-    
-
     return formattedMessage;
   }
 

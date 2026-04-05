@@ -364,12 +364,10 @@ class CryptoScalpingBot {
         // Monitor existing positions
         this.orderManager.monitorPositions(Array.from(this.currentMarketDataMap.values()));
 
-        // Generate trading signals for each pair
+        // Generate trading signals for each pair — always process all pairs
+        // so signals are broadcast and logged for every symbol.
+        // The canOpenNewPosition guard lives inside processSignalForPair.
         for (const pair of config.trading.pairs) {
-          if (!this.orderManager.canOpenNewPosition()) {
-            break; // Stop looking for new trades if we can't open any
-          }
-
           await this.processSignalForPair(pair);
         }
 
@@ -539,12 +537,19 @@ class CryptoScalpingBot {
       // Broadcast signal to dashboard
       this.dashboard.broadcastSignal({ ...signal, symbol: pair });
 
-      // Execute trades based on signals — require >50% confidence
-      if ((signal.type === "BUY" || signal.type === "SELL") && signal.confidence > 50) {
-        await this.executeSignal(pair, signal, marketData);
-      } else if (signal.type === "BUY" || signal.type === "SELL") {
-        logger.info(`Signal skipped (low confidence ${signal.confidence}%): ${signal.type} ${pair}`);
+      const isValidSignal = signal.type === "BUY" || signal.type === "SELL";
+      if(!isValidSignal) return ;
+
+      if(signal.confidence >50) {
+        if (this.orderManager.canOpenNewPosition()) {
+          await this.executeSignal(pair, signal, marketData);
+        } else {
+          logger.info(`Signal skipped (max positions reached): ${signal.type} ${pair}`);
+        }
+        return
       }
+      
+      logger.info(`Signal skipped (low confidence ${signal.confidence}%): ${signal.type} ${pair}`);
     } catch (error) {
       logger.error(`Error processing signal for ${pair}:`, { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       if (this.logger) {

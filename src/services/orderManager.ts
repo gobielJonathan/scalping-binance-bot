@@ -138,11 +138,18 @@ export class OrderManager {
           riskCheck.warnings.forEach(warning => logger.warn(`Risk Warning: ${warning}`));
         }
 
-        // ── Sync real balance before placing entry order ─────────────────
-        // The risk manager's availableBalance drifts from reality on restart.
-        // Always query the actual free USDT and cap quantity accordingly.
+        // ── Balance guards before placing order ──────────────────────────
         let safeQuantity = finalQuantity;
+
+        // Resolve base asset from symbol (e.g. BNBUSDT → BNB, PEPEUSDT → PEPE)
+        const quoteAssets = ['USDT'];
+        const baseAsset = quoteAssets.reduce(
+          (s, q) => (s.endsWith(q) ? s.slice(0, -q.length) : s),
+          orderRequest.symbol
+        );
+
         if (orderRequest.side === 'BUY') {
+          // BUY: verify we have enough USDT to cover the order
           try {
             const balances = await this.binanceService.getBalance('USDT');
             const freeUsdt = balances[0]?.free ?? 0;
@@ -157,6 +164,23 @@ export class OrderManager {
             }
           } catch (balErr) {
             logger.warn('[OrderManager] Could not fetch USDT balance for pre-order check: ' + String(balErr));
+          }
+        } else if (orderRequest.side === 'SELL') {
+          // SELL: verify we actually hold the base asset before trying to sell it
+          try {
+            const balances = await this.binanceService.getBalance(baseAsset);
+            const freeBase = balances[0]?.free ?? 0;
+            if (freeBase <= 0) {
+              logger.warn(`[OrderManager] SELL skipped — no ${baseAsset} balance on exchange (${orderRequest.symbol})`);
+              return null;
+            }
+            // Cap sell quantity to what we actually hold (with 0.1% buffer for dust)
+            if (safeQuantity > freeBase) {
+              logger.warn(`[OrderManager] Capping SELL qty ${safeQuantity.toFixed(6)} → ${freeBase.toFixed(6)} (free ${baseAsset}: ${freeBase})`);
+              safeQuantity = freeBase * 0.999; // leave tiny dust margin
+            }
+          } catch (balErr) {
+            logger.warn(`[OrderManager] Could not fetch ${baseAsset} balance for SELL check: ` + String(balErr));
           }
         }
         // ──────────────────────────────────────────────────────────────────
@@ -495,7 +519,7 @@ export class OrderManager {
   canOpenNewPosition(): boolean {
     const portfolio = this.riskManager.getPortfolio();
     const riskHealth = this.riskManager.getRiskHealth();
-    
+    console.log(`[OrderManager] Checking if we can open new position: openPositions=${portfolio.openPositions.length}, riskStatus=${riskHealth.status}, availableBalance=${portfolio.availableBalance.toFixed(2)}`);
     return (
       portfolio.openPositions.length < config.trading.maxConcurrentTrades &&
       riskHealth.status !== 'CRITICAL' &&

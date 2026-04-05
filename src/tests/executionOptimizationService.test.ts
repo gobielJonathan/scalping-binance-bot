@@ -1,6 +1,6 @@
 import { ExecutionOptimizationService } from '../services/executionOptimizationService';
 import { BinanceService } from '../services/binanceService';
-import { OrderRequest, MarketData, MarketDepth } from '../types';
+import { OrderRequest, MarketData, MarketDepth, SmartRoutingDecision } from '../types';
 
 // Mock BinanceService
 const mockBinanceService = {
@@ -111,7 +111,7 @@ describe('ExecutionOptimizationService', () => {
         quantity: 0.01
       };
 
-      const executionPlan = {
+      const executionPlan: SmartRoutingDecision = {
         symbol: 'BTCUSDT',
         orderSize: 0.01,
         recommendedExchange: 'Binance',
@@ -161,7 +161,7 @@ describe('ExecutionOptimizationService', () => {
         quantity: 1 // Large order that should trigger splitting
       };
 
-      const executionPlan = {
+      const executionPlan: SmartRoutingDecision = {
         symbol: 'BTCUSDT',
         orderSize: 1,
         recommendedExchange: 'Binance',
@@ -296,7 +296,7 @@ describe('ExecutionOptimizationService', () => {
         quantity: 0.01
       };
 
-      const executionPlan = {
+      const executionPlan: SmartRoutingDecision = {
         symbol: 'BTCUSDT',
         orderSize: 0.01,
         recommendedExchange: 'Binance',

@@ -324,7 +324,7 @@ async function runValidationBacktest(
   optimalParams: Record<string, number>,
   optimizationParams: OptimizationParameter[]
 ) {
-  const scenarios = ['trending_down', 'sideways', 'volatile'];
+  const scenarios: Array<'trending_down' | 'sideways' | 'volatile'> = ['trending_down', 'sideways', 'volatile'];
   
   for (const scenario of scenarios) {
     console.log(`\nValidating with ${scenario} market...`);

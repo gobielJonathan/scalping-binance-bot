@@ -4,7 +4,7 @@ import { SignalValidator } from '../src/services/signalValidator';
 import { SignalAggregator } from '../src/services/signalAggregator';
 import { SignalMonitor } from '../src/services/signalMonitor';
 import { ScalpingStrategy } from '../src/strategies/scalpingStrategy';
-import logger from '../src/services/logger';
+import logger, { toLogError } from '../src/services/logger';
 
 /**
  * Comprehensive test runner for the enhanced signal generation system
@@ -191,8 +191,8 @@ async function runSignalTests(): Promise<void> {
     }
 
   } catch (error) {
-    logger.error('Error running signal tests', error);
-    console.error('❌ Test execution failed:', error.message);
+    logger.error('Error running signal tests', toLogError(error));
+    console.error('❌ Test execution failed:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }

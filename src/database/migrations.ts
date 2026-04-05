@@ -1,5 +1,6 @@
-const fs = require('fs');
-const path = require('path');
+import * as sqlite3 from 'sqlite3';
+import fs from 'fs';
+import path from 'path';
 import { DatabaseService } from '../database';
 import config from '../config';
 import { logger } from '../services/logger';
@@ -111,7 +112,6 @@ export class DatabaseMigrationService {
    * Migrate from old database with different schema
    */
   private async migrateFromOldDatabase(oldDbPath: string): Promise<void> {
-    const sqlite3 = require('sqlite3');
     const oldDb = new sqlite3.Database(oldDbPath);
 
     try {

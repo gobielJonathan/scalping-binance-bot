@@ -1,6 +1,6 @@
 import * as sqlite3 from 'sqlite3';
-const path = require('path');
-const fs = require('fs');
+import path from 'path';
+import fs from 'fs';
 import { randomUUID } from 'crypto';
 import config from '../config';
 import {
@@ -596,7 +596,6 @@ export class DatabaseService {
     const finalPath = backupPath || defaultPath;
 
     return new Promise((resolve, reject) => {
-      const fs = require('fs');
       try {
         fs.copyFileSync(this.dbPath, finalPath);
         resolve(finalPath);

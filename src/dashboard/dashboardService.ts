@@ -80,7 +80,11 @@ export class DashboardService {
           timestamp: Date.now()
         });
       } catch (error) {
-        logger.error('Performance projections endpoint failed:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
+        logger.error('Performance projections endpoint failed:', {
+          error: error instanceof Error
+            ? { stack: error.stack, code: (error as any).code }
+            : { stack: String(error) }
+        });
         res.status(500).json({ error: 'Failed to get performance projections' });
       }
     });

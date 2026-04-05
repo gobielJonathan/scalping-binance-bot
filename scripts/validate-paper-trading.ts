@@ -4,9 +4,10 @@ import { DatabaseService } from '../src/database/databaseService';
 import { PaperTradingValidator } from '../src/services/paperTradingValidator';
 import { PaperTradingService } from '../src/services/paperTradingService';
 import { RiskManager } from '../src/services/riskManager';
-import { logger } from '../src/services/logger';
+import { logger, toLogError } from '../src/services/logger';
 import config from '../src/config';
 import fs from 'fs';
+import { OrderType } from 'binance-api-node';
 
 interface ValidationOptions {
   days?: number;
@@ -59,7 +60,7 @@ class PaperTradingValidationScript {
       }
 
     } catch (error) {
-      logger.error('Error running validation script:', error);
+      logger.error('Error running validation script:', toLogError(error));
       process.exit(1);
     }
   }
@@ -145,7 +146,7 @@ class PaperTradingValidationScript {
     const orderRequest = {
       symbol,
       side: 'BUY' as const,
-      type: 'MARKET' as const,
+      type: 'MARKET' as OrderType,
       quantity
     };
 
@@ -217,7 +218,7 @@ class PaperTradingValidationScript {
       const orderRequest = {
         symbol: 'BTCUSDT',
         side: 'BUY' as const,
-        type: 'MARKET' as const,
+        type: 'MARKET' as OrderType,
         quantity: 0.1
       };
 
@@ -384,7 +385,7 @@ async function main() {
         break;
     }
   } catch (error) {
-    console.error('❌ Error:', error.message);
+    console.error('❌ Error:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }

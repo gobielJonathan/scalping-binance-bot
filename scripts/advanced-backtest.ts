@@ -171,7 +171,11 @@ async function runAdvancedBacktest() {
  * Generate realistic market events
  */
 function generateMarketEvents(startDate: number, endDate: number) {
-  const events = [];
+  const events: Array<{
+    timestamp: number;
+    type: 'pump' | 'dump' | 'consolidation';
+    magnitude: number;
+  }> = [];
   const duration = endDate - startDate;
   const numEvents = Math.floor(duration / (24 * 60 * 60 * 1000)) * 2; // ~2 events per day
 
@@ -343,6 +347,7 @@ async function runStressTests() {
       endDate: Date.now(),
       initialBalance: 10000,
       timeframe: '5m',
+      latencyMs: 0,
       ...stress.config,
       enableRiskManagement: true
     };

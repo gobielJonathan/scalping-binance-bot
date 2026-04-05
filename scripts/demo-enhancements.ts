@@ -16,6 +16,7 @@ import { RiskManager } from '../src/services/riskManager';
 import { IntegrationService } from '../src/services/integrationService';
 import { OrderManager } from '../src/services/orderManager';
 import { MarketData, TradingSignal } from '../src/types';
+import { OrderType } from 'binance-api-node';
 
 // Console colors
 const colors = {
@@ -211,7 +212,7 @@ ${colors.reset}\n`);
       const orderRequest = {
         symbol: pos.symbol,
         side: 'BUY' as const,
-        type: 'MARKET' as const,
+        type: 'MARKET' as OrderType,
         quantity: pos.quantity
       };
 
@@ -280,7 +281,7 @@ ${colors.reset}\n`);
     console.log(`${colors.yellow}${colors.bright}🛡️  ENHANCED LOSS LIMITS & AUTO-REDUCTION${colors.reset}\n`);
 
     // Get current risk health
-    const riskHealth = this.riskManager.getRiskHealth();
+    const riskHealth = this.riskManager.getEnhancedRiskHealth();
     
     console.log(`${colors.cyan}Current Loss Limit Status:${colors.reset}`);
     for (const [limitId, status] of Object.entries(riskHealth.lossLimitStatus)) {
@@ -298,7 +299,7 @@ ${colors.reset}\n`);
     const orderRequest = {
       symbol: 'BTCUSDT',
       side: 'BUY' as const,
-      type: 'MARKET' as const,
+      type: 'MARKET' as OrderType,
       quantity: 0.2
     };
 
@@ -333,7 +334,7 @@ ${colors.reset}\n`);
   private async demonstrateRiskManagement(): Promise<void> {
     console.log(`${colors.yellow}${colors.bright}📈 COMPREHENSIVE RISK METRICS${colors.reset}\n`);
 
-    const riskHealth = this.riskManager.getRiskHealth();
+    const riskHealth = this.riskManager.getEnhancedRiskHealth();
     const performanceMetrics = this.riskManager.getPerformanceMetrics();
 
     console.log(`${colors.cyan}Risk Assessment:${colors.reset}`);

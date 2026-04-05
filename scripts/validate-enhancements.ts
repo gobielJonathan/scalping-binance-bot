@@ -16,6 +16,7 @@ import { RiskManager } from '../src/services/riskManager';
 import { IntegrationService } from '../src/services/integrationService';
 import { OrderManager } from '../src/services/orderManager';
 import { MarketData, TradePosition, TradingSignal } from '../src/types';
+import { OrderType } from 'binance-api-node';
 
 // Colors for console output
 const colors = {
@@ -120,7 +121,7 @@ class ValidationSuite {
     
     const updatedMetrics = this.portfolioTracker.updatePortfolioMetrics(marketData);
     this.assert(updatedMetrics.totalRiskExposure > 0, 'Should have risk exposure with open positions');
-    this.assert(updatedMetrics.positionContribution, 'Should calculate position contribution');
+    this.assert(!!updatedMetrics.positionContribution, 'Should calculate position contribution');
 
     // Test 3: Risk decomposition
     const positionRisks = this.portfolioTracker.getPositionRisk(marketData);
@@ -220,7 +221,7 @@ class ValidationSuite {
     const normalOrder = {
       symbol: 'BTCUSDT',
       side: 'BUY' as const,
-      type: 'MARKET' as const,
+      type: 'MARKET' as OrderType,
       quantity: 0.1
     };
     
@@ -230,13 +231,13 @@ class ValidationSuite {
     // Test 3: Simulate losses approaching limit
     this.riskManager.getPortfolio().dailyPnl = -2000; // Approaching dollar limit
     riskCheck = this.riskManager.canOpenTrade(normalOrder, 50000);
-    this.assert(riskCheck.warnings && riskCheck.warnings.length > 0, 'Should generate warnings near limits');
+    this.assert(!!riskCheck.warnings && riskCheck.warnings.length > 0, 'Should generate warnings near limits');
 
     // Test 4: Breach loss limit
     this.riskManager.getPortfolio().dailyPnl = -3000; // Exceed dollar limit
     riskCheck = this.riskManager.canOpenTrade(normalOrder, 50000);
     this.assert(!riskCheck.allowed, 'Trading should be blocked when limits are exceeded');
-    this.assert(riskCheck.reason && riskCheck.reason.includes('loss limit'), 'Should specify loss limit breach');
+    this.assert(!!riskCheck.reason && riskCheck.reason.includes('loss limit'), 'Should specify loss limit breach');
 
     // Test 5: Auto position reduction
     this.riskManager.getPortfolio().dailyPnl = -2200; // Near limit but not exceeded
@@ -288,14 +289,14 @@ class ValidationSuite {
     this.assert(riskHealth.status !== undefined, 'Risk status should be defined');
     this.assert(riskHealth.metrics.currentRisk > 0, 'Should calculate current risk');
     this.assert(riskHealth.metrics.riskUtilization >= 0, 'Risk utilization should be non-negative');
-    this.assert(riskHealth.lossLimitStatus, 'Should provide loss limit status');
+    this.assert(!!riskHealth.lossLimitStatus, 'Should provide loss limit status');
 
     // Test portfolio metrics
     const portfolioMetrics = this.portfolioTracker.updatePortfolioMetrics(marketData);
     this.assert(portfolioMetrics.portfolioVaR95 >= 0, 'VaR 95% should be calculated');
     this.assert(portfolioMetrics.portfolioVaR99 >= portfolioMetrics.portfolioVaR95, 'VaR 99% should be >= VaR 95%');
     this.assert(portfolioMetrics.concentrationRisk >= 0, 'Concentration risk should be calculated');
-    this.assert(portfolioMetrics.correlationMatrix, 'Correlation matrix should be calculated');
+    this.assert(!!portfolioMetrics.correlationMatrix, 'Correlation matrix should be calculated');
 
     console.log(`  ✓ Risk health status: ${riskHealth.status}`);
     console.log(`  ✓ VaR 95%: ${portfolioMetrics.portfolioVaR95.toFixed(2)}%`);

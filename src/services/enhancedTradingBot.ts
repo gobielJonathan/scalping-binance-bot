@@ -7,7 +7,7 @@ import {
   BinanceService
 } from './index';
 import { DashboardService } from '../dashboard/dashboardService';
-import { SystemHealthMetrics, Portfolio, MarketData } from '../types';
+import { SystemHealthMetrics, MarketData } from '../types';
 import logger, { toLogError } from './logger';
 import monitoringService from './monitoringService';
 import config from '../config';

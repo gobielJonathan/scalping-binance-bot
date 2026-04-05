@@ -4,12 +4,9 @@ import {
   MarketDepth,
   ExecutionOptimizationConfig,
   SmartRoutingDecision,
-  MarketData,
-  TradePosition
-} from '../types';
+  MarketData} from '../types';
 import { BinanceService } from './binanceService';
 import logger, { toLogError } from './logger';
-import config from '../config';
 
 /**
  * Execution Optimization Service - Optimizes order execution to minimize slippage and costs
@@ -252,7 +249,7 @@ export class ExecutionOptimizationService {
   /**
    * Analyze optimal timing for order execution
    */
-  private analyzeOptimalTiming(symbol: string, marketData: MarketData): {
+  private analyzeOptimalTiming(_symbol: string, marketData: MarketData): {
     recommendation: 'IMMEDIATE' | 'DELAYED' | 'SPLIT';
     delayMs?: number;
     confidence: number;
@@ -413,7 +410,7 @@ export class ExecutionOptimizationService {
    */
   private async executeWithOrderSplitting(
     orderRequest: OrderRequest,
-    executionPlan: SmartRoutingDecision
+    _executionPlan: SmartRoutingDecision
   ): Promise<any> {
     logger.info(`Executing large order with splitting strategy`, {
       symbol: orderRequest.symbol,
@@ -459,7 +456,7 @@ export class ExecutionOptimizationService {
    */
   private async executeWithTimingOptimization(
     orderRequest: OrderRequest,
-    executionPlan: SmartRoutingDecision
+    _executionPlan: SmartRoutingDecision
   ): Promise<any> {
     
     // Add small random delay to avoid predictable timing

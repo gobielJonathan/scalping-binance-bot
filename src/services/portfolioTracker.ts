@@ -127,10 +127,8 @@ export class PortfolioTracker {
   private historicalData: Map<string, number[]> = new Map(); // symbol -> price history
   private portfolioHistory: PortfolioMetrics[] = [];
   private performanceHistory: { [period: string]: number[] } = {};
-  private benchmarkData: BenchmarkData | null = null;
   private alerts: PortfolioAlert[] = [];
   private correlationWindow = 100; // periods for correlation calculation
-  private varWindow = 100; // periods for VaR calculation
 
   constructor(riskManager: RiskManager) {
     this.riskManager = riskManager;
@@ -296,7 +294,7 @@ export class PortfolioTracker {
   /**
    * Calculate risk metrics including VaR
    */
-  private calculateRiskMetrics(portfolio: Portfolio, marketData: MarketData[]): Partial<PortfolioMetrics> {
+  private calculateRiskMetrics(_portfolio: Portfolio, _marketData: MarketData[]): Partial<PortfolioMetrics> {
     const returns = this.calculatePortfolioReturns();
     
     // Calculate VaR using historical simulation
@@ -361,7 +359,7 @@ export class PortfolioTracker {
   /**
    * Calculate diversification metrics
    */
-  private calculateDiversificationMetrics(portfolio: Portfolio, marketData: MarketData[]): Partial<PortfolioMetrics> {
+  private calculateDiversificationMetrics(portfolio: Portfolio, _marketData: MarketData[]): Partial<PortfolioMetrics> {
     // Calculate concentration risk (Herfindahl index)
     const concentrationRisk = this.calculateConcentrationRisk(portfolio);
     

@@ -88,11 +88,9 @@ export class MultiTimeframeAnalyzer {
   /**
    * Generate trading signal for a specific timeframe
    */
-  private generateSignalForTimeframe(candles: Candle[], config: TimeframeConfig, symbol: string): TradingSignal {
+  private generateSignalForTimeframe(candles: Candle[], config: TimeframeConfig, _symbol: string): TradingSignal {
     const prices = candles.map(c => c.close);
     const volumes = candles.map(c => c.volume);
-    const highs = candles.map(c => c.high);
-    const lows = candles.map(c => c.low);
 
     // Calculate technical indicators
     const ema9 = TechnicalIndicators.calculateEMA(prices, 9);
@@ -102,7 +100,6 @@ export class MultiTimeframeAnalyzer {
     const bollinger = TechnicalIndicators.calculateBollingerBands(prices);
     const atr = TechnicalIndicators.calculateATR(candles, 14);
 
-    const currentPrice = prices[prices.length - 1];
     const currentEma9 = ema9[ema9.length - 1];
     const currentEma21 = ema21[ema21.length - 1];
     const currentRsi = rsi[rsi.length - 1];
@@ -223,7 +220,6 @@ export class MultiTimeframeAnalyzer {
     if (atr.length === 0 || prices.length < 20) return 1;
 
     const currentAtr = atr[atr.length - 1];
-    const avgAtr = atr.slice(-10).reduce((sum, val) => sum + val, 0) / Math.min(10, atr.length);
     const currentPrice = prices[prices.length - 1];
 
     // Calculate volatility relative to price
@@ -268,7 +264,7 @@ export class MultiTimeframeAnalyzer {
   /**
    * Combine signals from multiple timeframes
    */
-  private combineSignals(signals: TimeframeSignal[], symbol: string): TradingSignal {
+  private combineSignals(signals: TimeframeSignal[], _symbol: string): TradingSignal {
     if (signals.length === 0) {
       return {
         type: 'HOLD',

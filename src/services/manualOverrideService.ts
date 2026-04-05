@@ -592,7 +592,7 @@ export class ManualOverrideService {
   /**
    * Get override commands
    */
-  private getOverrideCommands(req: express.Request, res: express.Response): void {
+  private getOverrideCommands(_req: express.Request, res: express.Response): void {
     const commands = Array.from(this.overrideCommands.values())
       .sort((a, b) => b.requestedAt - a.requestedAt)
       .slice(0, 100); // Last 100 commands
@@ -603,7 +603,7 @@ export class ManualOverrideService {
   /**
    * Get strategy parameters
    */
-  private getStrategyParameters(req: express.Request, res: express.Response): void {
+  private getStrategyParameters(_req: express.Request, res: express.Response): void {
     const parameters = Array.from(this.strategyParameters.values());
     res.json(parameters);
   }
@@ -611,7 +611,7 @@ export class ManualOverrideService {
   /**
    * Get risk thresholds
    */
-  private getRiskThresholds(req: express.Request, res: express.Response): void {
+  private getRiskThresholds(_req: express.Request, res: express.Response): void {
     const thresholds = Array.from(this.riskThresholds.values());
     res.json(thresholds);
   }
@@ -619,7 +619,7 @@ export class ManualOverrideService {
   /**
    * Get system status
    */
-  private getSystemStatus(req: express.Request, res: express.Response): void {
+  private getSystemStatus(_req: express.Request, res: express.Response): void {
     const portfolio = this.riskManager.getPortfolio();
     const emergencyStopState = this.emergencyStopService.getState();
     const executionAnalytics = this.executionOptimizationService.getExecutionAnalytics();
@@ -871,7 +871,7 @@ export class ManualOverrideService {
   /**
    * Update risk threshold values with current metrics
    */
-  updateRiskThresholds(portfolio: Portfolio, systemMetrics: SystemHealthMetrics): void {
+  updateRiskThresholds(portfolio: Portfolio, _systemMetrics: SystemHealthMetrics): void {
     const dailyLossThreshold = this.riskThresholds.get('DAILY_LOSS');
     if (dailyLossThreshold) {
       dailyLossThreshold.currentValue = portfolio.dailyPnlPercent / 100;

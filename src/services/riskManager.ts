@@ -1,6 +1,6 @@
 import { TradePosition, Portfolio, OrderRequest, MarketData, TradingSignal } from '../types';
 import config from '../config';
-import { calculatePnL, generateTradeId } from '../utils/helpers';
+import { calculatePnL } from '../utils/helpers';
 import { logger } from './logger';
 
 export interface PositionSizingParams {
@@ -63,10 +63,7 @@ export class RiskManager {
   private positionSizingParams: PositionSizingParams;
   private lossLimits: { [key: string]: LossLimit };
   private performanceMetrics: PerformanceMetrics;
-  private volatilityHistory: Map<string, number[]> = new Map();
-  private priceHistory: Map<string, number[]> = new Map();
   private tradeHistory: TradePosition[] = [];
-  private dailyLossLimitBreached: boolean = false;
   private warningsIssued: Set<string> = new Set();
 
   constructor(initialBalance: number) {
@@ -186,7 +183,6 @@ export class RiskManager {
       marketData
     );
     const positionValue = orderRequest.quantity * currentPrice;
-    const optimalValue = optimalQuantity * currentPrice;
     
     // Check if we have enough available balance
     if (positionValue > this.portfolio.availableBalance) {
@@ -823,7 +819,6 @@ export class RiskManager {
       
       // Check if limit is exceeded
       if (currentValue >= limitValue) {
-        this.dailyLossLimitBreached = true;
         return {
           allowed: false,
           reason: `${limit.type.toLowerCase()} loss limit exceeded (${currentValue.toFixed(2)} >= ${limitValue.toFixed(2)})`,
@@ -977,7 +972,7 @@ export class RiskManager {
   /**
    * Calculate symbol correlation risk
    */
-  private calculateSymbolCorrelationRisk(symbol: string): number {
+  private calculateSymbolCorrelationRisk(_symbol: string): number {
     // Simplified correlation risk calculation
     // In a full implementation, this would check correlations with existing positions
     const existingSymbols = this.portfolio.openPositions.map(p => p.symbol);

@@ -58,9 +58,12 @@ async function databaseExamples() {
       openTime: Date.now(),
       strategyId: 'ema_rsi_strategy',
       signalId: signalId,
-      mode: config.trading.mode as 'paper' | 'live'
+      mode: config.trading.mode as 'paper' | 'live',
+      marginMode: 'isolated_margin',
+      leverage: config.trading.leverage,
+      liquidationPrice: 0,
+      borrowedAmount: 0
     });
-    console.log(`Trade saved with ID: ${tradeId}`);
 
     // Example 3: Update the trade (simulate closing)
     console.log('\n3. Updating trade (closing position)...');
@@ -217,7 +220,11 @@ async function databaseExamples() {
         openTime: Date.now(),
         strategyId: 'resistance_strategy',
         signalId: signal1Id,
-        mode: config.trading.mode as 'paper' | 'live'
+        mode: config.trading.mode as 'paper' | 'live',
+        marginMode: 'isolated_margin',
+        leverage: config.trading.leverage,
+        liquidationPrice: 0,
+        borrowedAmount: 0
       });
 
       console.log(`Transaction completed: Signal ${signal1Id}, Trade ${trade1Id}`);
@@ -299,7 +306,11 @@ async function paperTradingScenario() {
         closeTime: Date.now() - (Math.random() * 43200000), // Random close within 12h
         strategyId: strategy,
         signalId,
-        mode: 'paper'
+        mode: 'paper',
+        marginMode: 'isolated_margin',
+        leverage: config.trading.leverage,
+        liquidationPrice: 0,
+        borrowedAmount: 0
       });
 
       console.log(`Generated trade ${i + 1}: ${symbol} ${pnlPercent.toFixed(2)}% PnL`);

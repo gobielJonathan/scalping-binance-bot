@@ -4,6 +4,7 @@ import { logger } from './logger';
 import { BinanceService } from './binanceService';
 import { Candle, MarketData, TechnicalIndicators } from '../types';
 import config from '../config';
+import { CandleChartInterval_LT } from 'binance-api-node';
 
 export interface CandlestickStreamData {
   symbol: string;
@@ -43,7 +44,7 @@ export interface CandleWindow {
 
 export interface StreamConfig {
   symbol: string;
-  intervals: string[];
+  intervals: CandleChartInterval_LT[];
   enabled: boolean;
   bufferSize: number;
 }
@@ -58,7 +59,7 @@ export class MarketDataService extends EventEmitter {
   
   // Configuration
   private readonly maxWindowSize = 500; // Maximum candles to keep in memory
-  private readonly supportedIntervals = ['1m', '3m', '5m', '15m', '30m', '1h'];
+  private readonly supportedIntervals: CandleChartInterval_LT[] = ['1m', '3m', '5m', '15m', '30m', '1h'];
   private readonly reconnectDelay = 5000; // 5 seconds
   private readonly maxReconnectAttempts = 5;
   private readonly dataValidationEnabled = true;
@@ -210,7 +211,7 @@ export class MarketDataService extends EventEmitter {
   /**
    * Add a new trading pair to the stream
    */
-  public async addSymbol(symbol: string, intervals: string[] = ['1m', '3m', '5m']): Promise<void> {
+  public async addSymbol(symbol: string, intervals: CandleChartInterval_LT[] = ['1m', '3m', '5m']): Promise<void> {
     if (this.streamConfigs.has(symbol)) {
       logger.warn('Symbol already being tracked', { symbol });
       return;
@@ -261,7 +262,7 @@ export class MarketDataService extends EventEmitter {
   /**
    * Force refresh historical data for a symbol
    */
-  public async refreshHistoricalData(symbol: string, interval: string, limit: number = 500): Promise<void> {
+  public async refreshHistoricalData(symbol: string, interval: CandleChartInterval_LT, limit: number = 500): Promise<void> {
     const windowKey = `${symbol}_${interval}`;
     
     try {
@@ -325,7 +326,7 @@ export class MarketDataService extends EventEmitter {
   /**
    * Initialize stream configuration for a symbol
    */
-  private async initializeStreamConfig(symbol: string, intervals?: string[]): Promise<void> {
+  private async initializeStreamConfig(symbol: string, intervals?: CandleChartInterval_LT[]): Promise<void> {
     const useIntervals = intervals || this.supportedIntervals.slice(0, 3); // Default: 1m, 3m, 5m
     
     this.streamConfigs.set(symbol, {
@@ -450,7 +451,7 @@ export class MarketDataService extends EventEmitter {
   /**
    * Start candlestick stream for symbol and interval
    */
-  private async startKlineStream(symbol: string, interval: string): Promise<void> {
+  private async startKlineStream(symbol: string, interval: CandleChartInterval_LT): Promise<void> {
     const streamKey = `kline_${symbol}_${interval}`;
     
     if (this.activeStreams.has(streamKey)) {

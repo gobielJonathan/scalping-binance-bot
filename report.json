@@ -1,0 +1,35 @@
+{
+  "summary": {
+    "validationPeriod": "30 days",
+    "overallAccuracy": "0.00%",
+    "status": "NEEDS_IMPROVEMENT"
+  },
+  "metrics": {
+    "slippage": {
+      "paper": "0.0000%",
+      "live": "0.0658%",
+      "accuracy": "0.00%"
+    },
+    "fees": {
+      "paper": "0.000000",
+      "live": "0.010433",
+      "accuracy": "0.00%"
+    },
+    "executionTime": {
+      "paper": "0ms",
+      "live": "200ms",
+      "accuracy": "0.00%"
+    }
+  },
+  "recommendations": [
+    "Slippage simulation needs adjustment. Paper: 0.0000%, Live: 0.0658%",
+    "Fee calculation needs adjustment. Paper: 0.000000, Live: 0.010433",
+    "Execution time simulation needs adjustment. Paper: 0ms, Live: 200ms",
+    "Paper trading simulation needs significant improvements"
+  ],
+  "tradeVolume": {
+    "paperTrades": 0,
+    "liveTrades": 50
+  },
+  "timestamp": "2026-04-05T15:33:47.207Z"
+}

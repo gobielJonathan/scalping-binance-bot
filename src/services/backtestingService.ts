@@ -269,7 +269,11 @@ export class BacktestingEngine {
       pnlPercent: 0,
       status: 'OPEN',
       openTime: timestamp,
-      fees: positionValue * this.config.commissionRate
+      fees: positionValue * this.config.commissionRate,
+      marginMode: 'isolated_margin',
+      leverage: 1,
+      liquidationPrice: 0,
+      borrowedAmount: 0
     };
 
     // Update balance for fees

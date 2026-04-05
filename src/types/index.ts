@@ -171,11 +171,11 @@ export interface TradePosition {
   openTime: number;
   closeTime?: number;
   fees: number;
-  // Margin trading fields (optional — only set for isolated_margin trades)
-  marginMode?: 'spot' | 'isolated_margin';
-  leverage?: number;
-  liquidationPrice?: number;
-  borrowedAmount?: number;
+  // Isolated margin fields
+  marginMode: 'isolated_margin';
+  leverage: number;
+  liquidationPrice: number;
+  borrowedAmount: number;
 }
 
 export interface OrderRequest {
@@ -400,10 +400,10 @@ export interface DatabaseTrade {
   mode: 'paper' | 'live';
   orderId?: string;
   notes?: string;
-  marginMode?: 'spot' | 'isolated_margin';
-  leverage?: number;
-  liquidationPrice?: number;
-  borrowedAmount?: number;
+  marginMode: 'isolated_margin';
+  leverage: number;
+  liquidationPrice: number;
+  borrowedAmount: number;
   createdAt: number;
   updatedAt: number;
 }

@@ -41,3 +41,6 @@ trade_history/
 
 
 test_reports
+
+
+.env.*

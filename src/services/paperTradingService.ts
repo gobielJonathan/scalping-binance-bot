@@ -376,27 +376,21 @@ export class PaperTradingService {
         pnlPercent: 0,
         status: 'OPEN',
         openTime: Date.now(),
-        fees: execution.fees
-      };
-
-      // Attach margin metadata when running in isolated_margin mode
-      if (config.trading.tradingAccount === 'isolated_margin') {
-        position.marginMode = 'isolated_margin';
-        position.leverage = config.trading.leverage;
-        position.liquidationPrice = this.riskManager.calculateLiquidationPrice(
-          position.entryPrice,
-          position.side,
+        fees: execution.fees,
+        marginMode: 'isolated_margin',
+        leverage: config.trading.leverage,
+        liquidationPrice: this.riskManager.calculateLiquidationPrice(
+          execution.averagePrice,
+          orderRequest.side,
           config.trading.leverage,
           config.trading.marginMaintenanceRate,
-        );
-        position.borrowedAmount = position.quantity * position.entryPrice * (1 - 1 / config.trading.leverage);
-      }
+        ),
+        borrowedAmount: execution.executedQuantity * execution.averagePrice * (1 - 1 / config.trading.leverage),
+      };
 
-      // Update portfolio — margin mode only locks the collateral (notional / leverage)
+      // Only lock the margin collateral (notional / leverage)
       const positionValue = position.quantity * position.entryPrice;
-      const marginRequired = position.leverage && position.leverage > 1
-        ? positionValue / position.leverage
-        : positionValue;
+      const marginRequired = positionValue / position.leverage;
       this.portfolio.lockedBalance += marginRequired;
       this.portfolio.availableBalance -= marginRequired;
       this.portfolio.riskExposure += positionValue;
@@ -604,6 +598,10 @@ export class PaperTradingService {
       mode: 'paper',
       orderId: execution.orderId,
       notes: `Slippage: ${(execution.slippage * 100).toFixed(4)}%, Execution Time: ${execution.executionTime}ms`,
+      marginMode: position.marginMode,
+      leverage: position.leverage,
+      liquidationPrice: position.liquidationPrice,
+      borrowedAmount: position.borrowedAmount,
       createdAt: Date.now(),
       updatedAt: Date.now()
     };

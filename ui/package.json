@@ -22,7 +22,8 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
     "test:all": "run-s test:coverage test:e2e",
-    "playwright:install": "playwright install"
+    "playwright:install": "playwright install",
+    "prod": "pnpm run build && cp -r dist/* /var/www/html/scalping"
   },
   "dependencies": {
     "@primeuix/themes": "^2.0.3",

@@ -80,7 +80,11 @@ export class DatabaseUtils {
       strategyId,
       signalId,
       mode,
-      orderId: trade.id
+      orderId: trade.id,
+      marginMode: 'isolated_margin',
+      leverage: trade.leverage,
+      liquidationPrice: trade.liquidationPrice,
+      borrowedAmount: trade.borrowedAmount
     };
   }
 

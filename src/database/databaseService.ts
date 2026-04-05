@@ -236,7 +236,7 @@ export class DatabaseService {
       },
       {
         version: '1.1.0',
-        sql: `ALTER TABLE trades ADD COLUMN marginMode TEXT DEFAULT 'spot'`
+        sql: `ALTER TABLE trades ADD COLUMN marginMode TEXT DEFAULT 'isolated_margin'`
       },
       {
         version: '1.1.1',
@@ -292,7 +292,7 @@ export class DatabaseService {
       dbTrade.pnl, dbTrade.pnlPercent, dbTrade.fees, dbTrade.status,
       dbTrade.openTime, dbTrade.closeTime, dbTrade.strategyId, dbTrade.signalId,
       dbTrade.mode, dbTrade.orderId, dbTrade.notes,
-      dbTrade.marginMode ?? 'spot', dbTrade.leverage ?? 1, dbTrade.liquidationPrice ?? null, dbTrade.borrowedAmount ?? 0,
+      dbTrade.marginMode, dbTrade.leverage, dbTrade.liquidationPrice ?? null, dbTrade.borrowedAmount,
       dbTrade.createdAt, dbTrade.updatedAt
     ]);
 

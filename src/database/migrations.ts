@@ -166,7 +166,11 @@ export class DatabaseMigrationService {
           strategyId: trade.strategy || trade.strategyId || 'imported',
           mode: trade.mode || 'paper',
           orderId: trade.orderId || trade.id,
-          notes: trade.notes || trade.reason
+          notes: trade.notes || trade.reason,
+          marginMode: 'isolated_margin' as const,
+          leverage: trade.leverage || 1,
+          liquidationPrice: trade.liquidationPrice || 0,
+          borrowedAmount: trade.borrowedAmount || 0
         };
 
         await this.dbService.saveTrade(newTrade);
@@ -275,7 +279,11 @@ export class DatabaseMigrationService {
           closeTime: this.normalizeTimestamp(trade.close_time || trade.closeTime || trade.updated_at),
           strategyId: trade.strategy_id || trade.strategy || 'imported',
           mode: trade.mode || 'paper',
-          orderId: trade.order_id || trade.orderId
+          orderId: trade.order_id || trade.orderId,
+          marginMode: 'isolated_margin' as const,
+          leverage: trade.leverage || 1,
+          liquidationPrice: trade.liquidation_price || trade.liquidationPrice || 0,
+          borrowedAmount: trade.borrowed_amount || trade.borrowedAmount || 0
         };
 
         await this.dbService.saveTrade(newTrade);

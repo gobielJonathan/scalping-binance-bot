@@ -494,15 +494,15 @@ class CryptoScalpingBot {
       }
 
       if (!marketData) {
+        logger.info(`Signal skipped (no market data): ${pair}`);
         if (this.logger) {
-          this.logger.warn("No market data available for pair — waiting for ticker stream", {
-            pair,
-          });
+          this.logger.warn("No market data available for pair — waiting for ticker stream", { pair });
         }
         return;
       }
 
       if (candles.length < 20) {
+        logger.info(`Signal skipped (insufficient candles ${candles.length}/20): ${pair}`);
         if (this.logger) {
           this.logger.warn("Insufficient candles for signal generation", {
             pair,
@@ -538,15 +538,18 @@ class CryptoScalpingBot {
       this.dashboard.broadcastSignal({ ...signal, symbol: pair });
 
       const isValidSignal = signal.type === "BUY" || signal.type === "SELL";
-      if(!isValidSignal) return ;
+      if (!isValidSignal) {
+        logger.info(`Signal skipped (HOLD): ${pair}`);
+        return;
+      }
 
-      if(signal.confidence >50) {
+      if (signal.confidence > 50) {
         if (this.orderManager.canOpenNewPosition()) {
           await this.executeSignal(pair, signal, marketData);
         } else {
           logger.info(`Signal skipped (max positions reached): ${signal.type} ${pair}`);
         }
-        return
+        return;
       }
 
       logger.info(`Signal skipped (low confidence ${signal.confidence}%): ${signal.type} ${pair}`);

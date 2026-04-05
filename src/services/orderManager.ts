@@ -99,7 +99,17 @@ export class OrderManager {
         pnlPercent: 0,
         status: 'OPEN',
         openTime: Date.now(),
-        fees: 0
+        fees: 0,
+        // Isolated margin fields — set to defaults here, overwritten after live fill
+        marginMode: 'isolated_margin',
+        leverage: config.trading.leverage,
+        liquidationPrice: this.riskManager.calculateLiquidationPrice(
+          marketData.price,
+          orderRequest.side,
+          config.trading.leverage,
+          config.trading.marginMaintenanceRate,
+        ),
+        borrowedAmount: finalQuantity * marketData.price * (1 - 1 / config.trading.leverage),
       };
 
       if (this.paperTradingMode) {
@@ -166,12 +176,9 @@ export class OrderManager {
             logger.warn('[OrderManager] Could not fetch USDT balance for pre-order check: ' + String(balErr));
           }
         } else if (orderRequest.side === 'SELL') {
-          // SELL: verify we actually hold the base asset before trying to sell it
-          // For isolated margin, check the margin account balance instead
+          // SELL: always check isolated margin balance
           try {
-            const freeBase = config.trading.tradingAccount === 'isolated_margin'
-              ? await this.binanceService.getIsolatedMarginBalance(orderRequest.symbol, baseAsset)
-              : (await this.binanceService.getBalance(baseAsset))[0]?.free ?? 0;
+            const freeBase = await this.binanceService.getIsolatedMarginBalance(orderRequest.symbol, baseAsset);
             if (freeBase <= 0) {
               logger.warn(`[OrderManager] SELL skipped — no ${baseAsset} balance on exchange (${orderRequest.symbol})`);
               return null;
@@ -186,25 +193,15 @@ export class OrderManager {
         }
         // ──────────────────────────────────────────────────────────────────
 
-        // Execute the order — branch on trading account mode
-        let binanceOrder: any;
-        if (config.trading.tradingAccount === 'isolated_margin') {
-          binanceOrder = await this.binanceService.placeMarginOrder({
-            symbol: orderRequest.symbol,
-            side: orderRequest.side,
-            type: OrderType.MARKET,
-            quantity: safeQuantity,
-            isIsolated: true,
-            sideEffectType: 'AUTO_BORROW_REPAY',
-          });
-        } else {
-          binanceOrder = await this.binanceService.placeOrder({
-            symbol: orderRequest.symbol,
-            side: orderRequest.side,
-            type: OrderType.MARKET,
-            quantity: safeQuantity,
-          });
-        }
+        // Always place as isolated margin order with AUTO_BORROW_REPAY
+        const binanceOrder = await this.binanceService.placeMarginOrder({
+          symbol: orderRequest.symbol,
+          side: orderRequest.side,
+          type: OrderType.MARKET,
+          quantity: safeQuantity,
+          isIsolated: true,
+          sideEffectType: 'AUTO_BORROW_REPAY',
+        });
 
         // Parse actual average fill price
         const execQty = parseFloat(String(binanceOrder.executedQty ?? 0));
@@ -214,19 +211,16 @@ export class OrderManager {
         if (execQty > 0) position.quantity = execQty;
         position.fees = parseFloat(String(binanceOrder.commission ?? 0)) || 0;
 
-        // Attach margin metadata for isolated_margin trades
-        if (config.trading.tradingAccount === 'isolated_margin') {
-          position.marginMode = 'isolated_margin';
-          position.leverage = config.trading.leverage;
-          position.liquidationPrice = this.riskManager.calculateLiquidationPrice(
-            position.entryPrice,
-            position.side,
-            config.trading.leverage,
-            config.trading.marginMaintenanceRate,
-          );
-          // Borrowed = notional - margin collateral
-          position.borrowedAmount = position.quantity * position.entryPrice * (1 - 1 / config.trading.leverage);
-        }
+        // Always attach margin metadata
+        position.marginMode = 'isolated_margin';
+        position.leverage = config.trading.leverage;
+        position.liquidationPrice = this.riskManager.calculateLiquidationPrice(
+          position.entryPrice,
+          position.side,
+          config.trading.leverage,
+          config.trading.marginMaintenanceRate,
+        );
+        position.borrowedAmount = position.quantity * position.entryPrice * (1 - 1 / config.trading.leverage);
         
         // Add to risk manager
         this.riskManager.addPosition(position);
@@ -306,30 +300,23 @@ export class OrderManager {
         
         // Determine the opposite side for closing
         const closeSide = position.side === 'BUY' ? 'SELL' : 'BUY';
-        const isMargin = position.marginMode === 'isolated_margin' || config.trading.tradingAccount === 'isolated_margin';
         
         // Resolve base asset to check real available balance
         let closeQty = position.quantity;
         try {
           const baseAsset = quoteAssets.reduce((s, q) => s.endsWith(q) ? s.slice(0, -q.length) : s, position.symbol);
-          const available = isMargin
-            ? await this.binanceService.getIsolatedMarginBalance(position.symbol, baseAsset)
-            : (await this.binanceService.getBalance(baseAsset))[0]?.free ?? 0;
+          const available = await this.binanceService.getIsolatedMarginBalance(position.symbol, baseAsset);
           if (available > 0 && available < closeQty) {
             logger.warn(`[OrderManager] Adjusting close qty ${closeQty} → ${available} (actual balance)`);
             closeQty = available;
           }
         } catch { /* proceed with stored quantity */ }
 
-        // Execute closing order
-        const closeOrder = isMargin
-          ? await this.binanceService.placeMarginOrder({
-              symbol: position.symbol, side: closeSide, type: OrderType.MARKET,
-              quantity: closeQty, isIsolated: true, sideEffectType: 'AUTO_BORROW_REPAY',
-            })
-          : await this.binanceService.placeOrder({
-              symbol: position.symbol, side: closeSide, type: OrderType.MARKET, quantity: closeQty,
-            });
+        // Always close via isolated margin order
+        const closeOrder = await this.binanceService.placeMarginOrder({
+          symbol: position.symbol, side: closeSide, type: OrderType.MARKET,
+          quantity: closeQty, isIsolated: true, sideEffectType: 'AUTO_BORROW_REPAY',
+        });
 
         // Close the position in risk manager
         const actualClosePrice = closeOrder.price || currentPrice;
@@ -353,36 +340,24 @@ export class OrderManager {
 
     try {
       const stopSide = position.side === 'BUY' ? 'SELL' : 'BUY';
-      const isMargin = position.marginMode === 'isolated_margin' || config.trading.tradingAccount === 'isolated_margin';
       
       // STOP_LOSS_LIMIT requires both stopPrice (trigger) and price (limit).
       const limitPrice = stopSide === 'SELL'
         ? position.stopLoss * 0.995
         : position.stopLoss * 1.005;
 
-      if (isMargin) {
-        await this.binanceService.placeMarginOrder({
-          symbol: position.symbol,
-          side: stopSide,
-          type: OrderType.STOP_LOSS_LIMIT,
-          quantity: position.quantity,
-          stopPrice: position.stopLoss,
-          price: limitPrice,
-          timeInForce: 'GTC',
-          isIsolated: true,
-          sideEffectType: 'AUTO_REPAY',
-        });
-      } else {
-        await this.binanceService.placeOrder({
-          symbol: position.symbol,
-          side: stopSide,
-          type: OrderType.STOP_LOSS_LIMIT,
-          quantity: position.quantity,
-          stopPrice: position.stopLoss,
-          price: limitPrice,
-          timeInForce: 'GTC',
-        });
-      }
+      // Always place as isolated margin stop loss with AUTO_REPAY
+      await this.binanceService.placeMarginOrder({
+        symbol: position.symbol,
+        side: stopSide,
+        type: OrderType.STOP_LOSS_LIMIT,
+        quantity: position.quantity,
+        stopPrice: position.stopLoss,
+        price: limitPrice,
+        timeInForce: 'GTC',
+        isIsolated: true,
+        sideEffectType: 'AUTO_REPAY',
+      });
 
       logger.info(`Stop loss order placed for position ${position.id} at $${position.stopLoss}`);
     } catch (error) {

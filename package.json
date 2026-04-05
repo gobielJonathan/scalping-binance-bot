@@ -22,7 +22,17 @@
     "validate:paper:test": "ts-node scripts/validate-paper-trading.ts test",
     "validate:paper:benchmark": "ts-node scripts/validate-paper-trading.ts benchmark",
     "validate:paper:compare": "ts-node scripts/validate-paper-trading.ts compare",
-    "validate:paper:continuous": "ts-node scripts/validate-paper-trading.ts continuous"
+    "validate:paper:continuous": "ts-node scripts/validate-paper-trading.ts continuous",
+    "pm2:start": "pm2 start dist/index.js --name crypto-scalping-bot",
+    "pm2:start:dev": "pm2 start src/index.ts --name crypto-scalping-bot --interpreter ts-node",
+    "pm2:stop": "pm2 stop crypto-scalping-bot",
+    "pm2:restart": "pm2 restart crypto-scalping-bot",
+    "pm2:reload": "pm2 reload crypto-scalping-bot",
+    "pm2:delete": "pm2 delete crypto-scalping-bot",
+    "pm2:logs": "pm2 logs crypto-scalping-bot",
+    "pm2:status": "pm2 status",
+    "pm2:monit": "pm2 monit",
+    "deploy": "pnpm build && pnpm pm2:restart"
   },
   "keywords": [
     "cryptocurrency",

@@ -28,9 +28,9 @@ interface OpenPosition {
   currentPrice: number
   pnl: number
   stopLoss?: number
-  marginMode?: 'spot' | 'isolated_margin'
-  leverage?: number
-  liquidationPrice?: number
+  marginMode: 'isolated_margin'
+  leverage: number
+  liquidationPrice: number
 }
 
 interface AnalyticsStats {
@@ -418,10 +418,8 @@ onUnmounted(() => {
                     {{ pos.stopLoss ? '$' + fmt(pos.stopLoss) : '—' }}
                   </span>
                 </span>
-                <template v-if="pos.marginMode === 'isolated_margin'">
-                  <span class="text-[#f39c12] font-medium">{{ pos.leverage }}× Margin</span>
-                  <span v-if="pos.liquidationPrice" class="text-[#e74c3c] font-medium">Liq: ${{ fmt(pos.liquidationPrice) }}</span>
-                </template>
+                <span class="text-[#f39c12] font-medium">{{ pos.leverage }}× Margin</span>
+                <span class="text-[#e74c3c] font-medium">Liq: ${{ fmt(pos.liquidationPrice) }}</span>
               </div>
               <div class="shrink-0 ml-3">
                 <span :class="['text-sm font-bold', pos.pnl >= 0 ? 'text-[#26c281]' : 'text-[#e74c3c]']">

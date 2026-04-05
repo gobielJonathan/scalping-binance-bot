@@ -188,10 +188,8 @@ export class RiskManager {
     const positionValue = orderRequest.quantity * currentPrice;
     const optimalValue = optimalQuantity * currentPrice;
 
-    // For isolated margin, the effective buying power is available balance × leverage.
-    // The margin required is only positionValue / leverage (not the full notional).
-    const isMargin = config.trading.tradingAccount === 'isolated_margin';
-    const leverage = isMargin ? config.trading.leverage : 1;
+    // Always isolated margin — leverage is always active
+    const leverage = config.trading.leverage;
     const marginRequired = positionValue / leverage;
 
     // Check if we have enough available balance (margin-mode uses margin required, not notional)
@@ -418,10 +416,8 @@ export class RiskManager {
   addPosition(position: TradePosition): void {
     this.portfolio.openPositions.push(position);
     const positionValue = position.quantity * position.entryPrice;
-    // For margin trades, only the margin collateral is deducted from available balance
-    const marginRequired = position.leverage && position.leverage > 1
-      ? positionValue / position.leverage
-      : positionValue;
+    // Margin collateral = notional / leverage
+    const marginRequired = positionValue / position.leverage;
 
     this.portfolio.lockedBalance += marginRequired;
     this.portfolio.availableBalance -= marginRequired;

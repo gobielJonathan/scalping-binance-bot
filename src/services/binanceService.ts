@@ -1,4 +1,4 @@
-import Binance, { OrderType, OrderSide, TimeInForce } from "binance-api-node";
+import Binance, { CandleChartInterval_LT, UserDataStreamEvent, NewOrderSpot, NewFuturesOrder, FuturesBalanceResult } from "binance-api-node";
 import WebSocket from "ws";
 import config from "../config/index";
 import { TradingPair, Candle, OrderRequest, MarketData } from "../types/index";
@@ -169,7 +169,7 @@ export interface UserDataStreamData {
 }
 
 export class BinanceService {
-  private client: any;
+  private client!: ReturnType<typeof Binance>;
   private wsConnections: Map<string, WebSocket> = new Map();
   private wsReconnectAttempts: Map<string, number> = new Map();
   private maxReconnectAttempts = 5;
@@ -185,12 +185,9 @@ export class BinanceService {
 
   constructor() {
     this.isTestnet = config.binance.testnet;
-    this.baseURL = this.isTestnet
-      ? "https://demo-api.binance.com"
-      : "https://api.binance.com";
-    this.wsBaseURL = this.isTestnet
-      ? "wss://demo-stream.binance.com:9443/ws"
-      : "wss://stream.binance.com:9443/ws";
+    // Isolated margin lives on the spot/margin exchange (not futures)
+    this.baseURL = config.binance.baseURL;
+    this.wsBaseURL = config.binance.wsURL;
 
     this.initializeClient();
     this.setupRateLimiting();
@@ -251,11 +248,11 @@ export class BinanceService {
       logger.debug("Fetching account info", {
         source: "BinanceService",
       });
-      const accountInfo = await this.client.accountInfo();
+      const accountInfo = await this.client.futuresAccountInfo();
       logger.info("Account info retrieved successfully", {
         source: "BinanceService",
       });
-      return accountInfo;
+      return accountInfo as unknown as BinanceAccountInfo;
     } catch (error) {
       logger.error("Failed to fetch account info", {
         source: "BinanceService",
@@ -266,18 +263,18 @@ export class BinanceService {
   }
 
   async getBalance(asset?: string): Promise<BinanceBalance[]> {
-    const accountInfo = await this.getAccountInfo();
-    const balances = accountInfo.balances
-      .filter((balance) =>
+    const futuresBalances = await this.client.futuresAccountBalance();
+    const balances = futuresBalances
+      .filter((b: FuturesBalanceResult) =>
         asset
-          ? balance.asset === asset
-          : parseFloat(balance.free) > 0 || parseFloat(balance.locked) > 0,
+          ? b.asset === asset
+          : parseFloat(b.availableBalance) > 0 || parseFloat(b.balance) > 0,
       )
-      .map((balance) => ({
-        asset: balance.asset,
-        free: parseFloat(balance.free),
-        locked: parseFloat(balance.locked),
-        total: parseFloat(balance.free) + parseFloat(balance.locked),
+      .map((b: FuturesBalanceResult) => ({
+        asset: b.asset,
+        free: parseFloat(b.availableBalance),
+        locked: parseFloat(b.balance) - parseFloat(b.availableBalance),
+        total: parseFloat(b.balance),
       }));
 
     logger.debug("Balance retrieved", {
@@ -319,7 +316,7 @@ export class BinanceService {
    * Return decimal precision implied by a step/tick size string e.g. "0.00100" → 5
    */
   private stepPrecision(stepStr: string): number {
-    const match = stepStr.replace(/0+$/, '').match(/\.(.*)$/);
+    const match = stepStr.replace(/0+$/, "").match(/\.(.*)$/);
     return match ? match[1].length : 0;
   }
 
@@ -339,12 +336,14 @@ export class BinanceService {
    * Fetch symbol info with a per-session in-memory cache to avoid hammering
    * the exchange info endpoint on every order.
    */
-  private async getCachedSymbolInfo(symbol: string): Promise<BinanceSymbolInfo | null> {
+  private async getCachedSymbolInfo(
+    symbol: string,
+  ): Promise<BinanceSymbolInfo | null> {
     if (this.symbolInfoCache.has(symbol)) {
       return this.symbolInfoCache.get(symbol)!;
     }
     try {
-      const info = await this.getSymbolInfo(symbol) as BinanceSymbolInfo;
+      const info = (await this.getSymbolInfo(symbol)) as unknown as BinanceSymbolInfo;
       this.symbolInfoCache.set(symbol, info);
       return info;
     } catch {
@@ -379,23 +378,36 @@ export class BinanceService {
 
       const symbolInfo = await this.getCachedSymbolInfo(orderRequest.symbol);
       if (symbolInfo) {
-        const lotSize = symbolInfo.filters.find((f) => f.filterType === 'LOT_SIZE');
-        const priceFilter = symbolInfo.filters.find((f) => f.filterType === 'PRICE_FILTER');
+        const lotSize = symbolInfo.filters.find(
+          (f) => f.filterType === "LOT_SIZE",
+        );
+        const priceFilter = symbolInfo.filters.find(
+          (f) => f.filterType === "PRICE_FILTER",
+        );
 
         if (lotSize?.stepSize) {
-          quantityStr = this.formatToStep(orderRequest.quantity, lotSize.stepSize);
+          quantityStr = this.formatToStep(
+            orderRequest.quantity,
+            lotSize.stepSize,
+          );
         }
         if (priceFilter?.tickSize) {
           if (orderRequest.price) {
-            priceStr = this.formatToStep(orderRequest.price, priceFilter.tickSize);
+            priceStr = this.formatToStep(
+              orderRequest.price,
+              priceFilter.tickSize,
+            );
           }
           if (orderRequest.stopPrice) {
-            stopPriceStr = this.formatToStep(orderRequest.stopPrice, priceFilter.tickSize);
+            stopPriceStr = this.formatToStep(
+              orderRequest.stopPrice,
+              priceFilter.tickSize,
+            );
           }
         }
 
-        logger.debug('Rounded order values', {
-          source: 'BinanceService',
+        logger.debug("Rounded order values", {
+          source: "BinanceService",
           context: {
             rawQty: orderRequest.quantity,
             roundedQty: quantityStr,
@@ -407,17 +419,17 @@ export class BinanceService {
 
       const binanceOrder = {
         symbol: orderRequest.symbol,
-        side: orderRequest.side as OrderSide,
-        type: orderRequest.type as OrderType,
+        side: orderRequest.side,
+        type: orderRequest.type,
         quantity: quantityStr,
         ...(priceStr && { price: priceStr }),
         ...(stopPriceStr && { stopPrice: stopPriceStr }),
         ...(orderRequest.timeInForce && {
-          timeInForce: orderRequest.timeInForce as TimeInForce,
+          timeInForce: orderRequest.timeInForce,
         }),
       };
 
-      const result = await this.client.order(binanceOrder);
+      const result = await this.client.order(binanceOrder as NewOrderSpot);
       logger.info("Order placed successfully", {
         source: "BinanceService",
         context: {
@@ -471,19 +483,23 @@ export class BinanceService {
   // ── Isolated Margin Methods ────────────────────────────────────────────────
 
   /**
-   * Place an isolated margin order with AUTO_BORROW_REPAY side effect.
-   * Re-uses the same precision-rounding logic as placeOrder.
+   * Place a futures order with isolated margin.
+   * Margin type must be set to ISOLATED for the symbol before calling this
+   * (done once via setFuturesLeverage which also sets margin type).
    */
   async placeMarginOrder(orderRequest: OrderRequest): Promise<any> {
-    if (!this.client) throw new Error('Binance client not initialized');
+    if (!this.client) throw new Error("Binance client not initialized");
     await this.checkRateLimit();
 
-    if (config.trading.mode === 'paper') {
+    if (config.trading.mode === "paper") {
       return this.simulateOrder(orderRequest);
     }
 
     try {
-      logger.info('Placing isolated margin order', { source: 'BinanceService', context: orderRequest });
+      logger.info("Placing futures order", {
+        source: "BinanceService",
+        context: orderRequest,
+      });
 
       let quantityStr = orderRequest.quantity.toString();
       let priceStr = orderRequest.price?.toString();
@@ -491,33 +507,59 @@ export class BinanceService {
 
       const symbolInfo = await this.getCachedSymbolInfo(orderRequest.symbol);
       if (symbolInfo) {
-        const lotSize = symbolInfo.filters.find((f: any) => f.filterType === 'LOT_SIZE');
-        const priceFilter = symbolInfo.filters.find((f: any) => f.filterType === 'PRICE_FILTER');
-        if (lotSize?.stepSize) quantityStr = this.formatToStep(orderRequest.quantity, lotSize.stepSize);
+        const lotSize = symbolInfo.filters.find(
+          (f: any) => f.filterType === "LOT_SIZE",
+        );
+        const priceFilter = symbolInfo.filters.find(
+          (f: any) => f.filterType === "PRICE_FILTER",
+        );
+        if (lotSize?.stepSize)
+          quantityStr = this.formatToStep(
+            orderRequest.quantity,
+            lotSize.stepSize,
+          );
         if (priceFilter?.tickSize) {
-          if (orderRequest.price) priceStr = this.formatToStep(orderRequest.price, priceFilter.tickSize);
-          if (orderRequest.stopPrice) stopPriceStr = this.formatToStep(orderRequest.stopPrice, priceFilter.tickSize);
+          if (orderRequest.price)
+            priceStr = this.formatToStep(
+              orderRequest.price,
+              priceFilter.tickSize,
+            );
+          if (orderRequest.stopPrice)
+            stopPriceStr = this.formatToStep(
+              orderRequest.stopPrice,
+              priceFilter.tickSize,
+            );
         }
       }
 
-      const params: any = {
+      // AUTO_REPAY side effect → SELL with reduceOnly closes the position
+      const isClose = orderRequest.sideEffectType === 'AUTO_REPAY';
+
+      const params = {
         symbol: orderRequest.symbol,
         side: orderRequest.side,
-        type: orderRequest.type,
+        type: orderRequest.type as NewFuturesOrder['type'],
         quantity: quantityStr,
-        isIsolated: 'TRUE',
-        sideEffectType: orderRequest.sideEffectType ?? 'AUTO_BORROW_REPAY',
+        ...(isClose && { reduceOnly: 'true' as const }),
         ...(priceStr && { price: priceStr }),
         ...(stopPriceStr && { stopPrice: stopPriceStr }),
-        ...(orderRequest.timeInForce && { timeInForce: orderRequest.timeInForce }),
+        ...(orderRequest.timeInForce && {
+          timeInForce: orderRequest.timeInForce,
+        }),
       };
 
-      const result = await (this.client as any).marginOrder(params);
-      logger.info('Margin order placed', { source: 'BinanceService', context: { orderId: result.orderId?.toString(), symbol: orderRequest.symbol } });
+      const result = await this.client.futuresOrder(params as NewFuturesOrder);
+      logger.info("Futures order placed", {
+        source: "BinanceService",
+        context: {
+          orderId: result.orderId?.toString(),
+          symbol: orderRequest.symbol,
+        },
+      });
       return result;
     } catch (error) {
-      logger.error('Failed to place margin order', {
-        source: 'BinanceService',
+      logger.error("Failed to place futures order", {
+        source: "BinanceService",
         error: { stack: error instanceof Error ? error.stack : String(error) },
         context: { orderRequest },
       });
@@ -526,35 +568,40 @@ export class BinanceService {
   }
 
   /**
-   * Get the free balance of an asset in an isolated margin account.
-   * Returns 0 if the isolated pair doesn't exist yet.
+   * Get the available balance of an asset in the futures account.
    */
-  async getIsolatedMarginBalance(symbol: string, asset: string): Promise<number> {
-    if (!this.client) throw new Error('Binance client not initialized');
+  async getIsolatedMarginBalance(
+    symbol: string,
+    asset: string,
+  ): Promise<number> {
+    if (!this.client) throw new Error("Binance client not initialized");
     await this.checkRateLimit();
     try {
-      const account = await (this.client as any).marginIsolatedAccount({ symbols: symbol });
-      const pair = account?.assets?.find((a: any) => a.symbol === symbol);
-      if (!pair) return 0;
-      const assetData = [pair.baseAsset, pair.quoteAsset].find((a: any) => a.asset === asset);
-      return parseFloat(assetData?.free ?? '0');
+      const balances: FuturesBalanceResult[] = await this.client.futuresAccountBalance();
+      const entry = balances.find((b) => b.asset === asset);
+      return parseFloat(entry?.availableBalance ?? "0");
     } catch {
       return 0;
     }
   }
 
   /**
-   * Get the maximum amount that can be borrowed for a given asset in an isolated margin pair.
+   * Set leverage and margin type (ISOLATED) for a futures symbol.
+   * Call once before placing the first order on a symbol.
    */
-  async getMarginMaxBorrow(asset: string, symbol: string): Promise<number> {
-    if (!this.client) throw new Error('Binance client not initialized');
+  async setFuturesLeverage(symbol: string, leverage: number): Promise<void> {
+    if (!this.client) throw new Error("Binance client not initialized");
     await this.checkRateLimit();
     try {
-      const result = await (this.client as any).marginMaxBorrow({ asset, isolatedSymbol: symbol });
-      return parseFloat(result?.amount ?? '0');
+      await this.client.futuresMarginType({ symbol, marginType: 'ISOLATED' });
     } catch {
-      return 0;
+      // -4046: already set to ISOLATED — safe to ignore
     }
+    await this.client.futuresLeverage({ symbol, leverage });
+    logger.info("Futures leverage set", {
+      source: "BinanceService",
+      context: { symbol, leverage },
+    });
   }
 
   // ── End Isolated Margin Methods ────────────────────────────────────────────
@@ -562,18 +609,18 @@ export class BinanceService {
   // Market Data Methods
   async getSymbolInfo(
     symbol?: string,
-  ): Promise<BinanceSymbolInfo | BinanceSymbolInfo[]> {
+  ) {
     await this.checkRateLimit();
     try {
       logger.debug("Fetching exchange info", {
         source: "BinanceService",
         context: { symbol },
       });
-      const exchangeInfo = await this.client.exchangeInfo();
+      const exchangeInfo = await this.client.futuresExchangeInfo();
 
       if (symbol) {
         const symbolInfo = exchangeInfo.symbols.find(
-          (s: BinanceSymbolInfo) => s.symbol === symbol,
+          (s) => s.symbol === symbol,
         );
         if (!symbolInfo) {
           throw new Error(`Symbol ${symbol} not found`);
@@ -594,7 +641,7 @@ export class BinanceService {
 
   async getKlines(
     symbol: string,
-    interval: string,
+    interval: CandleChartInterval_LT,
     limit: number = 500,
   ): Promise<Candle[]> {
     await this.checkRateLimit();
@@ -603,7 +650,7 @@ export class BinanceService {
         source: "BinanceService",
         context: { symbol, interval, limit },
       });
-      const klines = await this.client.candles({ symbol, interval, limit });
+      const klines = await this.client.futuresCandles({ symbol, interval, limit });
 
       const candles: Candle[] = klines.map((kline: any) => ({
         openTime: kline.openTime,
@@ -635,7 +682,7 @@ export class BinanceService {
   }
 
   async getPrice(symbol?: string): Promise<MarketData | MarketData[]> {
-    if(!this.client) {
+    if (!this.client) {
       throw new Error("Binance client not initialized");
     }
 
@@ -646,8 +693,8 @@ export class BinanceService {
         context: { symbol },
       });
       const ticker24hr = symbol
-        ? await this.client.dailyStats({ symbol })
-        : await this.client.dailyStats();
+        ? await this.client.futuresDailyStats({ symbol })
+        : await this.client.futuresDailyStats();
 
       if (Array.isArray(ticker24hr)) {
         return ticker24hr.map(this.formatMarketData);
@@ -719,7 +766,7 @@ export class BinanceService {
 
   async startKlineStream(
     symbol: string,
-    interval: string,
+    interval: CandleChartInterval_LT,
     callback: (data: Candle) => void,
   ): Promise<void> {
     const streamName = `${symbol.toLowerCase()}@kline_${interval}`;
@@ -765,7 +812,7 @@ export class BinanceService {
   }
 
   async startUserDataStream(
-    callback: (data: UserDataStreamData) => void,
+    callback: (data: UserDataStreamEvent) => void,
   ): Promise<void> {
     try {
       // Get listen key for user data stream
@@ -1030,7 +1077,7 @@ export class BinanceService {
   async getServerTime(): Promise<number> {
     try {
       const response = await this.client.time();
-      return response.serverTime;
+      return response;
     } catch (error) {
       logger.error("Failed to get server time", {
         source: "BinanceService",

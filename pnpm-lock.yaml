@@ -8,12 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@types/uuid':
-        specifier: ^11.0.0
-        version: 11.0.0
-      '@types/winston':
-        specifier: ^2.4.4
-        version: 2.4.4
       binance-api-node:
         specifier: ^0.12.4
         version: 0.12.9(encoding@0.1.13)
@@ -69,6 +63,12 @@ importers:
       '@types/supertest':
         specifier: ^7.2.0
         version: 7.2.0
+      '@types/uuid':
+        specifier: ^11.0.0
+        version: 11.0.0
+      '@types/winston':
+        specifier: ^2.4.4
+        version: 2.4.4
       '@types/ws':
         specifier: ^8.5.8
         version: 8.18.1

@@ -491,9 +491,12 @@ export class BinanceService {
     const wsUrl = `${this.wsBaseURL}/${streamName}`;
     
     try {
-      await this.createWebSocketConnection(wsUrl, streamName, (message: WebSocketMessage) => {
-        if (message.data && message.data.s) {
-          const marketData = this.formatTickerToMarketData(message.data);
+      await this.createWebSocketConnection(wsUrl, streamName, (message: any) => {
+        // Single-stream format: the payload is the ticker object directly (has field 's')
+        // Combined-stream format: payload is wrapped in { stream, data } (has field 'data.s')
+        const tickerData = message.data ?? message;
+        if (tickerData && tickerData.s) {
+          const marketData = this.formatTickerToMarketData(tickerData);
           callback(marketData);
         }
       });

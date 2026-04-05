@@ -683,16 +683,8 @@ export class MarketDataService extends EventEmitter {
    * Setup event handlers
    */
   private setupEventHandlers(): void {
-    // Handle process termination
-    process.on('SIGINT', async () => {
-      logger.info('SIGINT received, stopping MarketDataService...');
-      await this.stop();
-    });
-
-    process.on('SIGTERM', async () => {
-      logger.info('SIGTERM received, stopping MarketDataService...');
-      await this.stop();
-    });
+    // Intentionally empty — shutdown is orchestrated by the bot's process signal handlers
+    // in src/index.ts to avoid double-stop warnings.
   }
 
   /**

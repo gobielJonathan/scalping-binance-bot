@@ -468,6 +468,97 @@ export class BinanceService {
     }
   }
 
+  // ── Isolated Margin Methods ────────────────────────────────────────────────
+
+  /**
+   * Place an isolated margin order with AUTO_BORROW_REPAY side effect.
+   * Re-uses the same precision-rounding logic as placeOrder.
+   */
+  async placeMarginOrder(orderRequest: OrderRequest): Promise<any> {
+    if (!this.client) throw new Error('Binance client not initialized');
+    await this.checkRateLimit();
+
+    if (config.trading.mode === 'paper') {
+      return this.simulateOrder(orderRequest);
+    }
+
+    try {
+      logger.info('Placing isolated margin order', { source: 'BinanceService', context: orderRequest });
+
+      let quantityStr = orderRequest.quantity.toString();
+      let priceStr = orderRequest.price?.toString();
+      let stopPriceStr = orderRequest.stopPrice?.toString();
+
+      const symbolInfo = await this.getCachedSymbolInfo(orderRequest.symbol);
+      if (symbolInfo) {
+        const lotSize = symbolInfo.filters.find((f: any) => f.filterType === 'LOT_SIZE');
+        const priceFilter = symbolInfo.filters.find((f: any) => f.filterType === 'PRICE_FILTER');
+        if (lotSize?.stepSize) quantityStr = this.formatToStep(orderRequest.quantity, lotSize.stepSize);
+        if (priceFilter?.tickSize) {
+          if (orderRequest.price) priceStr = this.formatToStep(orderRequest.price, priceFilter.tickSize);
+          if (orderRequest.stopPrice) stopPriceStr = this.formatToStep(orderRequest.stopPrice, priceFilter.tickSize);
+        }
+      }
+
+      const params: any = {
+        symbol: orderRequest.symbol,
+        side: orderRequest.side,
+        type: orderRequest.type,
+        quantity: quantityStr,
+        isIsolated: 'TRUE',
+        sideEffectType: orderRequest.sideEffectType ?? 'AUTO_BORROW_REPAY',
+        ...(priceStr && { price: priceStr }),
+        ...(stopPriceStr && { stopPrice: stopPriceStr }),
+        ...(orderRequest.timeInForce && { timeInForce: orderRequest.timeInForce }),
+      };
+
+      const result = await (this.client as any).marginOrder(params);
+      logger.info('Margin order placed', { source: 'BinanceService', context: { orderId: result.orderId?.toString(), symbol: orderRequest.symbol } });
+      return result;
+    } catch (error) {
+      logger.error('Failed to place margin order', {
+        source: 'BinanceService',
+        error: { stack: error instanceof Error ? error.stack : String(error) },
+        context: { orderRequest },
+      });
+      throw this.handleBinanceError(error);
+    }
+  }
+
+  /**
+   * Get the free balance of an asset in an isolated margin account.
+   * Returns 0 if the isolated pair doesn't exist yet.
+   */
+  async getIsolatedMarginBalance(symbol: string, asset: string): Promise<number> {
+    if (!this.client) throw new Error('Binance client not initialized');
+    await this.checkRateLimit();
+    try {
+      const account = await (this.client as any).marginIsolatedAccount({ symbols: symbol });
+      const pair = account?.assets?.find((a: any) => a.symbol === symbol);
+      if (!pair) return 0;
+      const assetData = [pair.baseAsset, pair.quoteAsset].find((a: any) => a.asset === asset);
+      return parseFloat(assetData?.free ?? '0');
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Get the maximum amount that can be borrowed for a given asset in an isolated margin pair.
+   */
+  async getMarginMaxBorrow(asset: string, symbol: string): Promise<number> {
+    if (!this.client) throw new Error('Binance client not initialized');
+    await this.checkRateLimit();
+    try {
+      const result = await (this.client as any).marginMaxBorrow({ asset, isolatedSymbol: symbol });
+      return parseFloat(result?.amount ?? '0');
+    } catch {
+      return 0;
+    }
+  }
+
+  // ── End Isolated Margin Methods ────────────────────────────────────────────
+
   // Market Data Methods
   async getSymbolInfo(
     symbol?: string,

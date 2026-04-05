@@ -187,10 +187,17 @@ export class RiskManager {
     );
     const positionValue = orderRequest.quantity * currentPrice;
     const optimalValue = optimalQuantity * currentPrice;
-    
-    // Check if we have enough available balance
-    if (positionValue > this.portfolio.availableBalance) {
-      const maxAffordableQuantity = this.portfolio.availableBalance / currentPrice * 0.95; // 5% buffer
+
+    // For isolated margin, the effective buying power is available balance × leverage.
+    // The margin required is only positionValue / leverage (not the full notional).
+    const isMargin = config.trading.tradingAccount === 'isolated_margin';
+    const leverage = isMargin ? config.trading.leverage : 1;
+    const marginRequired = positionValue / leverage;
+
+    // Check if we have enough available balance (margin-mode uses margin required, not notional)
+    if (marginRequired > this.portfolio.availableBalance) {
+      const effectivePower = this.portfolio.availableBalance * leverage;
+      const maxAffordableQuantity = (effectivePower * 0.95) / currentPrice;
       return {
         allowed: false,
         reason: 'Insufficient balance',
@@ -411,10 +418,14 @@ export class RiskManager {
   addPosition(position: TradePosition): void {
     this.portfolio.openPositions.push(position);
     const positionValue = position.quantity * position.entryPrice;
-    
-    this.portfolio.lockedBalance += positionValue;
-    this.portfolio.availableBalance -= positionValue;
-    this.portfolio.riskExposure += positionValue;
+    // For margin trades, only the margin collateral is deducted from available balance
+    const marginRequired = position.leverage && position.leverage > 1
+      ? positionValue / position.leverage
+      : positionValue;
+
+    this.portfolio.lockedBalance += marginRequired;
+    this.portfolio.availableBalance -= marginRequired;
+    this.portfolio.riskExposure += positionValue; // riskExposure tracks full notional
   }
 
   /**
@@ -553,6 +564,23 @@ export class RiskManager {
    */
   resetEmergencyStop(): void {
     this.emergencyStopTriggered = false;
+  }
+
+  /**
+   * Calculate the liquidation price for a leveraged position.
+   * Formula: entry × (1 − (1/leverage − maintenanceRate)) for long
+   *          entry × (1 + (1/leverage − maintenanceRate)) for short
+   */
+  calculateLiquidationPrice(
+    entryPrice: number,
+    side: 'BUY' | 'SELL',
+    leverage: number,
+    maintenanceRate: number,
+  ): number {
+    const margin = 1 / leverage - maintenanceRate;
+    return side === 'BUY'
+      ? entryPrice * (1 - margin)
+      : entryPrice * (1 + margin);
   }
 
   /**

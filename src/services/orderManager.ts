@@ -93,7 +93,7 @@ export class OrderManager {
         quantity: finalQuantity,
         entryPrice: marketData.price,
         currentPrice: marketData.price,
-        stopLoss: calculateStopLoss(marketData.price, config.trading.stopLossPercentage, orderRequest.side),
+        stopLoss: orderRequest.stopPrice ?? calculateStopLoss(marketData.price, config.trading.stopLossPercentage, orderRequest.side),
         takeProfit: calculateTakeProfit(marketData.price, config.trading.takeProfitPercentage, orderRequest.side),
         pnl: 0,
         pnlPercent: 0,
@@ -167,17 +167,18 @@ export class OrderManager {
           }
         } else if (orderRequest.side === 'SELL') {
           // SELL: verify we actually hold the base asset before trying to sell it
+          // For isolated margin, check the margin account balance instead
           try {
-            const balances = await this.binanceService.getBalance(baseAsset);
-            const freeBase = balances[0]?.free ?? 0;
+            const freeBase = config.trading.tradingAccount === 'isolated_margin'
+              ? await this.binanceService.getIsolatedMarginBalance(orderRequest.symbol, baseAsset)
+              : (await this.binanceService.getBalance(baseAsset))[0]?.free ?? 0;
             if (freeBase <= 0) {
               logger.warn(`[OrderManager] SELL skipped — no ${baseAsset} balance on exchange (${orderRequest.symbol})`);
               return null;
             }
-            // Cap sell quantity to what we actually hold (with 0.1% buffer for dust)
             if (safeQuantity > freeBase) {
               logger.warn(`[OrderManager] Capping SELL qty ${safeQuantity.toFixed(6)} → ${freeBase.toFixed(6)} (free ${baseAsset}: ${freeBase})`);
-              safeQuantity = freeBase * 0.999; // leave tiny dust margin
+              safeQuantity = freeBase * 0.999;
             }
           } catch (balErr) {
             logger.warn(`[OrderManager] Could not fetch ${baseAsset} balance for SELL check: ` + String(balErr));
@@ -185,24 +186,47 @@ export class OrderManager {
         }
         // ──────────────────────────────────────────────────────────────────
 
-        // Execute the order on Binance
-        const binanceOrder = await this.binanceService.placeOrder({
-          symbol: orderRequest.symbol,
-          side: orderRequest.side,
-          type: OrderType.MARKET,
-          quantity: safeQuantity
-        });
+        // Execute the order — branch on trading account mode
+        let binanceOrder: any;
+        if (config.trading.tradingAccount === 'isolated_margin') {
+          binanceOrder = await this.binanceService.placeMarginOrder({
+            symbol: orderRequest.symbol,
+            side: orderRequest.side,
+            type: OrderType.MARKET,
+            quantity: safeQuantity,
+            isIsolated: true,
+            sideEffectType: 'AUTO_BORROW_REPAY',
+          });
+        } else {
+          binanceOrder = await this.binanceService.placeOrder({
+            symbol: orderRequest.symbol,
+            side: orderRequest.side,
+            type: OrderType.MARKET,
+            quantity: safeQuantity,
+          });
+        }
 
-        // Parse actual average fill price from the order response.
-        // For MARKET orders, .price is "0.00000"; the real price is
-        // cummulativeQuoteQty / executedQty.
+        // Parse actual average fill price
         const execQty = parseFloat(String(binanceOrder.executedQty ?? 0));
         const quoteQty = parseFloat(String((binanceOrder as any).cummulativeQuoteQty ?? 0));
         const fillPrice = execQty > 0 && quoteQty > 0 ? quoteQty / execQty : parseFloat(String(binanceOrder.price ?? 0));
         position.entryPrice = fillPrice > 0 ? fillPrice : marketData.price;
-        // Sync quantity to what Binance actually executed (may differ after precision rounding)
         if (execQty > 0) position.quantity = execQty;
         position.fees = parseFloat(String(binanceOrder.commission ?? 0)) || 0;
+
+        // Attach margin metadata for isolated_margin trades
+        if (config.trading.tradingAccount === 'isolated_margin') {
+          position.marginMode = 'isolated_margin';
+          position.leverage = config.trading.leverage;
+          position.liquidationPrice = this.riskManager.calculateLiquidationPrice(
+            position.entryPrice,
+            position.side,
+            config.trading.leverage,
+            config.trading.marginMaintenanceRate,
+          );
+          // Borrowed = notional - margin collateral
+          position.borrowedAmount = position.quantity * position.entryPrice * (1 - 1 / config.trading.leverage);
+        }
         
         // Add to risk manager
         this.riskManager.addPosition(position);
@@ -282,29 +306,30 @@ export class OrderManager {
         
         // Determine the opposite side for closing
         const closeSide = position.side === 'BUY' ? 'SELL' : 'BUY';
+        const isMargin = position.marginMode === 'isolated_margin' || config.trading.tradingAccount === 'isolated_margin';
         
-        // Resolve base asset (e.g. ETHUSDT → ETH) to check real available balance,
-        // avoiding -1102 Insufficient balance when stored qty > actual holdings.
+        // Resolve base asset to check real available balance
         let closeQty = position.quantity;
         try {
           const baseAsset = quoteAssets.reduce((s, q) => s.endsWith(q) ? s.slice(0, -q.length) : s, position.symbol);
-          const balances = await this.binanceService.getBalance(baseAsset);
-          const available = balances[0]?.free ?? 0;
+          const available = isMargin
+            ? await this.binanceService.getIsolatedMarginBalance(position.symbol, baseAsset)
+            : (await this.binanceService.getBalance(baseAsset))[0]?.free ?? 0;
           if (available > 0 && available < closeQty) {
-            logger.warn(`[OrderManager] Adjusting close qty ${closeQty} → ${available} (actual on-exchange balance)`);
+            logger.warn(`[OrderManager] Adjusting close qty ${closeQty} → ${available} (actual balance)`);
             closeQty = available;
           }
-        } catch {
-          // If balance lookup fails, proceed with stored quantity
-        }
+        } catch { /* proceed with stored quantity */ }
 
-        // Execute closing order on Binance
-        const closeOrder = await this.binanceService.placeOrder({
-          symbol: position.symbol,
-          side: closeSide,
-          type: OrderType.MARKET,
-          quantity: closeQty
-        });
+        // Execute closing order
+        const closeOrder = isMargin
+          ? await this.binanceService.placeMarginOrder({
+              symbol: position.symbol, side: closeSide, type: OrderType.MARKET,
+              quantity: closeQty, isIsolated: true, sideEffectType: 'AUTO_BORROW_REPAY',
+            })
+          : await this.binanceService.placeOrder({
+              symbol: position.symbol, side: closeSide, type: OrderType.MARKET, quantity: closeQty,
+            });
 
         // Close the position in risk manager
         const actualClosePrice = closeOrder.price || currentPrice;
@@ -328,22 +353,36 @@ export class OrderManager {
 
     try {
       const stopSide = position.side === 'BUY' ? 'SELL' : 'BUY';
+      const isMargin = position.marginMode === 'isolated_margin' || config.trading.tradingAccount === 'isolated_margin';
       
       // STOP_LOSS_LIMIT requires both stopPrice (trigger) and price (limit).
-      // Add a 0.5% slippage buffer so the order can still fill if price gaps.
       const limitPrice = stopSide === 'SELL'
-        ? position.stopLoss * 0.995  // 0.5% below trigger for SELL stop
-        : position.stopLoss * 1.005; // 0.5% above trigger for BUY stop
+        ? position.stopLoss * 0.995
+        : position.stopLoss * 1.005;
 
-      await this.binanceService.placeOrder({
-        symbol: position.symbol,
-        side: stopSide,
-        type: OrderType.STOP_LOSS_LIMIT,
-        quantity: position.quantity,
-        stopPrice: position.stopLoss,
-        price: limitPrice,
-        timeInForce: 'GTC',
-      });
+      if (isMargin) {
+        await this.binanceService.placeMarginOrder({
+          symbol: position.symbol,
+          side: stopSide,
+          type: OrderType.STOP_LOSS_LIMIT,
+          quantity: position.quantity,
+          stopPrice: position.stopLoss,
+          price: limitPrice,
+          timeInForce: 'GTC',
+          isIsolated: true,
+          sideEffectType: 'AUTO_REPAY',
+        });
+      } else {
+        await this.binanceService.placeOrder({
+          symbol: position.symbol,
+          side: stopSide,
+          type: OrderType.STOP_LOSS_LIMIT,
+          quantity: position.quantity,
+          stopPrice: position.stopLoss,
+          price: limitPrice,
+          timeInForce: 'GTC',
+        });
+      }
 
       logger.info(`Stop loss order placed for position ${position.id} at $${position.stopLoss}`);
     } catch (error) {

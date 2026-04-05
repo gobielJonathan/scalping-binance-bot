@@ -233,6 +233,22 @@ export class DatabaseService {
             UPDATE config SET updatedAt = strftime('%s', 'now') * 1000 WHERE id = NEW.id;
           END
         `
+      },
+      {
+        version: '1.1.0',
+        sql: `ALTER TABLE trades ADD COLUMN marginMode TEXT DEFAULT 'spot'`
+      },
+      {
+        version: '1.1.1',
+        sql: `ALTER TABLE trades ADD COLUMN leverage REAL DEFAULT 1`
+      },
+      {
+        version: '1.1.2',
+        sql: `ALTER TABLE trades ADD COLUMN liquidationPrice REAL`
+      },
+      {
+        version: '1.1.3',
+        sql: `ALTER TABLE trades ADD COLUMN borrowedAmount REAL DEFAULT 0`
       }
     ];
 
@@ -267,14 +283,17 @@ export class DatabaseService {
       INSERT INTO trades (
         id, symbol, side, type, quantity, entryPrice, exitPrice, stopLoss, takeProfit,
         pnl, pnlPercent, fees, status, openTime, closeTime, strategyId, signalId,
-        mode, orderId, notes, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        mode, orderId, notes, marginMode, leverage, liquidationPrice, borrowedAmount,
+        createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       dbTrade.id, dbTrade.symbol, dbTrade.side, dbTrade.type, dbTrade.quantity,
       dbTrade.entryPrice, dbTrade.exitPrice, dbTrade.stopLoss, dbTrade.takeProfit,
       dbTrade.pnl, dbTrade.pnlPercent, dbTrade.fees, dbTrade.status,
       dbTrade.openTime, dbTrade.closeTime, dbTrade.strategyId, dbTrade.signalId,
-      dbTrade.mode, dbTrade.orderId, dbTrade.notes, dbTrade.createdAt, dbTrade.updatedAt
+      dbTrade.mode, dbTrade.orderId, dbTrade.notes,
+      dbTrade.marginMode ?? 'spot', dbTrade.leverage ?? 1, dbTrade.liquidationPrice ?? null, dbTrade.borrowedAmount ?? 0,
+      dbTrade.createdAt, dbTrade.updatedAt
     ]);
 
     return id;

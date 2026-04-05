@@ -171,6 +171,11 @@ export interface TradePosition {
   openTime: number;
   closeTime?: number;
   fees: number;
+  // Margin trading fields (optional — only set for isolated_margin trades)
+  marginMode?: 'spot' | 'isolated_margin';
+  leverage?: number;
+  liquidationPrice?: number;
+  borrowedAmount?: number;
 }
 
 export interface OrderRequest {
@@ -181,6 +186,9 @@ export interface OrderRequest {
   price?: number;
   stopPrice?: number;
   timeInForce?: 'GTC' | 'IOC' | 'FOK';
+  // Margin trading options
+  isIsolated?: boolean;
+  sideEffectType?: 'NO_SIDE_EFFECT' | 'MARGIN_BUY' | 'AUTO_REPAY' | 'AUTO_BORROW_REPAY';
 }
 
 export interface Portfolio {
@@ -392,6 +400,10 @@ export interface DatabaseTrade {
   mode: 'paper' | 'live';
   orderId?: string;
   notes?: string;
+  marginMode?: 'spot' | 'isolated_margin';
+  leverage?: number;
+  liquidationPrice?: number;
+  borrowedAmount?: number;
   createdAt: number;
   updatedAt: number;
 }

@@ -11,6 +11,9 @@ export interface Config {
   };
   trading: {
     mode: 'paper' | 'live';
+    tradingAccount: 'spot' | 'isolated_margin';
+    leverage: number;
+    marginMaintenanceRate: number;
     initialCapital: number;
     riskPerTrade: number;
     stopLossPercentage: number;
@@ -75,6 +78,13 @@ const config: Config = {
   },
   trading: {
     mode: (process.env.TRADING_MODE as 'paper' | 'live') || 'paper',
+    tradingAccount: (() => {
+      const acct = process.env.TRADING_ACCOUNT;
+      if (acct === 'isolated_margin') return 'isolated_margin' as const;
+      return 'spot' as const;
+    })(),
+    leverage: Math.max(1, parseInt(process.env.LEVERAGE || '3')),
+    marginMaintenanceRate: parseFloat(process.env.MARGIN_MAINTENANCE_RATE || '0.05'),
     initialCapital: parseFloat(process.env.INITIAL_CAPITAL || '500'),
     riskPerTrade: parseFloat(process.env.RISK_PER_TRADE || '0.08'),
     stopLossPercentage: parseFloat(process.env.STOP_LOSS_PERCENTAGE || '0.003'), // 0.3% for 1:2 risk-reward ratio

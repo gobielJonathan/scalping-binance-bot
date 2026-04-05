@@ -148,6 +148,40 @@ export class PaperTradingService {
     if (history.length > 100) {
       history.shift();
     }
+
+    // ── Margin simulation: liquidation check + interest accrual ──────────
+    if (config.trading.tradingAccount === 'isolated_margin') {
+      const positions = (this.portfolio as any).openPositions as TradePosition[] | undefined;
+      if (positions) {
+        for (const pos of positions.filter(p => p.symbol === marketData.symbol && p.status === 'OPEN')) {
+          // Liquidation check
+          if (pos.liquidationPrice != null) {
+            const liquidated =
+              (pos.side === 'BUY' && marketData.price <= pos.liquidationPrice) ||
+              (pos.side === 'SELL' && marketData.price >= pos.liquidationPrice);
+            if (liquidated) {
+              const marginCollateral = pos.quantity * pos.entryPrice / (pos.leverage ?? 1);
+              pos.pnl = -marginCollateral; // 100% margin loss
+              pos.pnlPercent = -100;
+              pos.status = 'CLOSED';
+              pos.closeTime = Date.now();
+              this.portfolio.availableBalance += 0; // collateral is gone
+              this.portfolio.lockedBalance -= marginCollateral;
+              this.portfolio.riskExposure -= pos.quantity * pos.entryPrice;
+              this.portfolio.totalPnl += pos.pnl;
+              this.portfolio.dailyPnl += pos.pnl;
+              logger.warn(`[PaperTrading] Position ${pos.id} LIQUIDATED at $${marketData.price} (liq price: $${pos.liquidationPrice?.toFixed(4)})`);
+            }
+          }
+          // Interest accrual: 0.01% of borrowed amount per update tick
+          if (pos.borrowedAmount && pos.borrowedAmount > 0) {
+            const interestCharge = pos.borrowedAmount * 0.0001;
+            pos.fees = (pos.fees ?? 0) + interestCharge;
+          }
+        }
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────
   }
 
   /**
@@ -345,10 +379,26 @@ export class PaperTradingService {
         fees: execution.fees
       };
 
-      // Update portfolio
+      // Attach margin metadata when running in isolated_margin mode
+      if (config.trading.tradingAccount === 'isolated_margin') {
+        position.marginMode = 'isolated_margin';
+        position.leverage = config.trading.leverage;
+        position.liquidationPrice = this.riskManager.calculateLiquidationPrice(
+          position.entryPrice,
+          position.side,
+          config.trading.leverage,
+          config.trading.marginMaintenanceRate,
+        );
+        position.borrowedAmount = position.quantity * position.entryPrice * (1 - 1 / config.trading.leverage);
+      }
+
+      // Update portfolio — margin mode only locks the collateral (notional / leverage)
       const positionValue = position.quantity * position.entryPrice;
-      this.portfolio.lockedBalance += positionValue;
-      this.portfolio.availableBalance -= positionValue;
+      const marginRequired = position.leverage && position.leverage > 1
+        ? positionValue / position.leverage
+        : positionValue;
+      this.portfolio.lockedBalance += marginRequired;
+      this.portfolio.availableBalance -= marginRequired;
       this.portfolio.riskExposure += positionValue;
       this.portfolio.openPositions.push(position);
 

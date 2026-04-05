@@ -548,7 +548,7 @@ class CryptoScalpingBot {
         }
         return
       }
-      
+
       logger.info(`Signal skipped (low confidence ${signal.confidence}%): ${signal.type} ${pair}`);
     } catch (error) {
       logger.error(`Error processing signal for ${pair}:`, { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
@@ -588,6 +588,7 @@ class CryptoScalpingBot {
         side: signal.type as "BUY" | "SELL",
         type: OrderType.MARKET,
         quantity: orderSize,
+        stopPrice: signal.stopLoss,
       };
 
       logger.info(

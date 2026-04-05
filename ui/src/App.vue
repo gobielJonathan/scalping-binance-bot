@@ -3,10 +3,13 @@ import DashboardLayout from './components/layout/DashboardLayout.vue'
 </script>
 
 <template>
-  <DashboardLayout />
+  <div class="dark">
+    <DashboardLayout />
+  </div>
 </template>
 
 <style>
+@import "tailwindcss";
 @import './styles/theme.css';
 @import './styles/responsive.css';
 @import './styles/animations.css';

@@ -652,6 +652,17 @@ class ApiService {
   // ============================================================================
 
   /**
+   * Get latest market data for all tracked symbols
+   */
+  async getMarketDataAll(): Promise<ApiResponse<any>> {
+    try {
+      return await this.request('/api/market/data')
+    } catch (error) {
+      return this.handleError(error, 'getMarketDataAll')
+    }
+  }
+
+  /**
    * Get historical OHLCV data
    */
   async getHistoricalData(

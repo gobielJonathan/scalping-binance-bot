@@ -1,5 +1,7 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import PrimeVue from 'primevue/config'
+import Aura from '@primeuix/themes/aura'
 import App from './App.vue'
 import { ErrorBoundary } from '@/utils/errors'
 import config from '@/config/environment'
@@ -14,6 +16,16 @@ const app = createApp(App)
 // Initialize Pinia for state management
 const pinia = createPinia()
 app.use(pinia)
+
+// Initialize PrimeVue with Aura dark-aware theme
+app.use(PrimeVue, {
+  theme: {
+    preset: Aura,
+    options: {
+      darkModeSelector: '.dark',
+    },
+  },
+})
 
 // Set up global error handling
 ErrorBoundary.registerHandler('vue-error', (error) => {

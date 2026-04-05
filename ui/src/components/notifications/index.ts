@@ -1,0 +1,1 @@
+export { default as TradeNotifications } from './TradeNotifications.vue'

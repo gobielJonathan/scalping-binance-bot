@@ -1,0 +1,733 @@
+/* ============================================================================
+   TRADING DASHBOARD THEME - Dark Mode Optimized
+   ============================================================================ */
+
+:root {
+  /* Primary Colors - Trading Theme */
+  --trading-bg-primary: #0f1419;
+  --trading-bg-secondary: #1a1f29;
+  --trading-bg-tertiary: #252d3a;
+  --trading-bg-hover: #2d3748;
+
+  /* Text Colors */
+  --trading-text-primary: #f0f2f5;
+  --trading-text-secondary: #a0a6b2;
+  --trading-text-tertiary: #6e7684;
+
+  /* Trading Status Colors */
+  --trading-profit: #26c281;
+  --trading-loss: #e74c3c;
+  --trading-neutral: #3498db;
+  --trading-warning: #f39c12;
+
+  /* Accent Colors */
+  --trading-accent-blue: #3498db;
+  --trading-accent-green: #26c281;
+  --trading-accent-red: #e74c3c;
+  --trading-accent-orange: #e67e22;
+
+  /* Borders & Shadows */
+  --trading-border: #323a47;
+  --trading-border-light: #3d4655;
+  --trading-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --trading-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --trading-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+
+  /* Typography Scale */
+  --trading-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 
+    'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  --trading-font-mono: 'Courier New', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+
+  /* Spacing */
+  --trading-spacing-xs: 0.25rem;
+  --trading-spacing-sm: 0.5rem;
+  --trading-spacing-md: 1rem;
+  --trading-spacing-lg: 1.5rem;
+  --trading-spacing-xl: 2rem;
+  --trading-spacing-xxl: 3rem;
+
+  /* Border Radius */
+  --trading-radius-sm: 0.25rem;
+  --trading-radius-md: 0.5rem;
+  --trading-radius-lg: 0.75rem;
+
+  /* Z-index Scale */
+  --trading-z-dropdown: 1000;
+  --trading-z-sticky: 1020;
+  --trading-z-fixed: 1030;
+  --trading-z-modal-backdrop: 1040;
+  --trading-z-modal: 1050;
+  --trading-z-popover: 1060;
+  --trading-z-tooltip: 1070;
+}
+
+/* ============================================================================
+   GLOBAL STYLES
+   ============================================================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--trading-bg-primary);
+  color: var(--trading-text-primary);
+  font-family: var(--trading-font-family);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================================================
+   SCROLLBAR STYLING
+   ============================================================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--trading-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--trading-bg-tertiary);
+  border-radius: var(--trading-radius-lg);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--trading-border-light);
+}
+
+/* Firefox */
+* {
+  scrollbar-color: var(--trading-bg-tertiary) var(--trading-bg-secondary);
+  scrollbar-width: thin;
+}
+
+/* ============================================================================
+   TYPOGRAPHY
+   ============================================================================ */
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  padding: 0;
+  font-weight: 600;
+  color: var(--trading-text-primary);
+}
+
+h1 { font-size: 2.5rem; line-height: 1.2; }
+h2 { font-size: 2rem; line-height: 1.3; }
+h3 { font-size: 1.5rem; line-height: 1.4; }
+h4 { font-size: 1.25rem; line-height: 1.4; }
+h5 { font-size: 1rem; line-height: 1.5; }
+h6 { font-size: 0.875rem; line-height: 1.5; }
+
+p {
+  margin: 0;
+  color: var(--trading-text-secondary);
+}
+
+a {
+  color: var(--trading-accent-blue);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: #2980b9;
+  text-decoration: underline;
+}
+
+/* ============================================================================
+   DASHBOARD LAYOUT COMPONENTS
+   ============================================================================ */
+
+.dashboard-container {
+  min-height: 100vh;
+  background-color: var(--trading-bg-primary);
+  padding: var(--trading-spacing-lg);
+}
+
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: var(--trading-spacing-md);
+  }
+}
+
+@media (max-width: 576px) {
+  .dashboard-container {
+    padding: var(--trading-spacing-sm);
+  }
+}
+
+/* ============================================================================
+   WIDGET CARD STYLING
+   ============================================================================ */
+
+.widget-card {
+  background-color: var(--trading-bg-secondary);
+  border: 1px solid var(--trading-border);
+  border-radius: var(--trading-radius-lg);
+  padding: var(--trading-spacing-lg);
+  margin-bottom: var(--trading-spacing-lg);
+  box-shadow: var(--trading-shadow-sm);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.widget-card:hover {
+  border-color: var(--trading-border-light);
+  box-shadow: var(--trading-shadow);
+  background-color: var(--trading-bg-hover);
+}
+
+.widget-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--trading-accent-blue), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.widget-card:hover::before {
+  opacity: 1;
+}
+
+/* Compact variant for smaller widgets */
+.widget-card.compact {
+  padding: var(--trading-spacing-md);
+}
+
+/* ============================================================================
+   WIDGET HEADER STYLING
+   ============================================================================ */
+
+.widget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--trading-spacing-lg);
+  padding-bottom: var(--trading-spacing-md);
+  border-bottom: 1px solid var(--trading-border);
+}
+
+.widget-header h5 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--trading-text-primary);
+}
+
+.widget-header-actions {
+  display: flex;
+  gap: var(--trading-spacing-sm);
+  align-items: center;
+}
+
+/* ============================================================================
+   WIDGET CONTENT AREAS
+   ============================================================================ */
+
+.widget-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--trading-spacing-md);
+}
+
+.widget-body {
+  flex: 1;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--trading-text-tertiary);
+  font-size: 0.875rem;
+}
+
+/* ============================================================================
+   WIDGET STATES
+   ============================================================================ */
+
+.widget-card.loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 20, 25, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--trading-z-modal-backdrop);
+}
+
+.widget-card.error {
+  border-color: var(--trading-loss);
+  background-color: rgba(231, 76, 60, 0.05);
+}
+
+.widget-card.success {
+  border-color: var(--trading-profit);
+  background-color: rgba(38, 194, 129, 0.05);
+}
+
+/* Loading Spinner */
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--trading-border);
+  border-top-color: var(--trading-accent-blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================================
+   GRID LAYOUT RESPONSIVE DESIGN
+   ============================================================================ */
+
+/* Default: Desktop layout (3+ columns) */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--trading-spacing-lg);
+  margin-bottom: var(--trading-spacing-lg);
+}
+
+/* Widget sizing helpers */
+.col-grid-full { grid-column: span 12; }
+.col-grid-half { grid-column: span 6; }
+.col-grid-third { grid-column: span 4; }
+.col-grid-quarter { grid-column: span 3; }
+.col-grid-two-thirds { grid-column: span 8; }
+
+/* Tablet layout (768px and below) - 2 columns */
+@media (max-width: 992px) {
+  .dashboard-grid {
+    gap: var(--trading-spacing-md);
+  }
+
+  .col-grid-full { grid-column: span 12; }
+  .col-grid-half { grid-column: span 6; }
+  .col-grid-third { grid-column: span 12; }
+  .col-grid-quarter { grid-column: span 6; }
+  .col-grid-two-thirds { grid-column: span 12; }
+}
+
+/* Mobile layout (576px and below) - 1 column */
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: var(--trading-spacing-md);
+  }
+
+  .col-grid-full,
+  .col-grid-half,
+  .col-grid-third,
+  .col-grid-quarter,
+  .col-grid-two-thirds {
+    grid-column: span 1;
+  }
+
+  .widget-card {
+    padding: var(--trading-spacing-md);
+    margin-bottom: var(--trading-spacing-md);
+  }
+
+  .widget-body {
+    min-height: 150px;
+  }
+}
+
+/* Extra small devices (under 400px) */
+@media (max-width: 400px) {
+  .dashboard-container {
+    padding: var(--trading-spacing-sm);
+  }
+
+  .widget-card {
+    padding: var(--trading-spacing-sm);
+    border-radius: var(--trading-radius-md);
+  }
+
+  .widget-header {
+    margin-bottom: var(--trading-spacing-sm);
+    padding-bottom: var(--trading-spacing-xs);
+  }
+
+  .widget-header h5 {
+    font-size: 0.875rem;
+  }
+}
+
+/* ============================================================================
+   STATUS INDICATORS
+   ============================================================================ */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--trading-spacing-xs);
+  padding: var(--trading-spacing-xs) var(--trading-spacing-sm);
+  border-radius: var(--trading-radius-md);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-badge.profit {
+  background-color: rgba(38, 194, 129, 0.1);
+  color: var(--trading-profit);
+  border: 1px solid var(--trading-profit);
+}
+
+.status-badge.loss {
+  background-color: rgba(231, 76, 60, 0.1);
+  color: var(--trading-loss);
+  border: 1px solid var(--trading-loss);
+}
+
+.status-badge.neutral {
+  background-color: rgba(52, 152, 219, 0.1);
+  color: var(--trading-neutral);
+  border: 1px solid var(--trading-neutral);
+}
+
+.status-badge.warning {
+  background-color: rgba(243, 156, 18, 0.1);
+  color: var(--trading-warning);
+  border: 1px solid var(--trading-warning);
+}
+
+.status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: var(--trading-spacing-xs);
+}
+
+.status-dot.active {
+  background-color: var(--trading-profit);
+  box-shadow: 0 0 8px var(--trading-profit);
+}
+
+.status-dot.inactive {
+  background-color: var(--trading-text-tertiary);
+}
+
+.status-dot.warning {
+  background-color: var(--trading-warning);
+  box-shadow: 0 0 8px var(--trading-warning);
+}
+
+/* ============================================================================
+   DATA DISPLAY STYLES
+   ============================================================================ */
+
+.data-label {
+  font-size: 0.75rem;
+  color: var(--trading-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: var(--trading-spacing-xs);
+}
+
+.data-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--trading-text-primary);
+  font-family: var(--trading-font-mono);
+  letter-spacing: -0.5px;
+}
+
+.data-value.profit {
+  color: var(--trading-profit);
+}
+
+.data-value.loss {
+  color: var(--trading-loss);
+}
+
+.data-change {
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: var(--trading-font-mono);
+  margin-top: var(--trading-spacing-xs);
+}
+
+.data-change.up {
+  color: var(--trading-profit);
+}
+
+.data-change.down {
+  color: var(--trading-loss);
+}
+
+/* ============================================================================
+   ROW AND COLUMN HELPERS
+   ============================================================================ */
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-right: calc(var(--trading-spacing-md) * -1);
+  margin-left: calc(var(--trading-spacing-md) * -1);
+}
+
+.row > * {
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 100%;
+  padding-right: var(--trading-spacing-md);
+  padding-left: var(--trading-spacing-md);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================================
+   CHART AREA STYLING
+   ============================================================================ */
+
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 400px;
+  background: linear-gradient(135deg, 
+    rgba(52, 152, 219, 0.03) 0%, 
+    rgba(38, 194, 129, 0.03) 100%);
+  border-radius: var(--trading-radius-lg);
+  padding: var(--trading-spacing-lg);
+  margin: var(--trading-spacing-lg) 0;
+}
+
+@media (max-width: 768px) {
+  .chart-container {
+    height: 300px;
+    padding: var(--trading-spacing-md);
+  }
+}
+
+/* ============================================================================
+   TABLE STYLING
+   ============================================================================ */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.table thead {
+  background-color: var(--trading-bg-tertiary);
+  border-bottom: 2px solid var(--trading-border);
+}
+
+.table thead th {
+  padding: var(--trading-spacing-md);
+  text-align: left;
+  color: var(--trading-text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+}
+
+.table tbody tr {
+  border-bottom: 1px solid var(--trading-border);
+  transition: background-color 0.2s ease;
+}
+
+.table tbody tr:hover {
+  background-color: var(--trading-bg-hover);
+}
+
+.table tbody td {
+  padding: var(--trading-spacing-md);
+  color: var(--trading-text-primary);
+  font-family: var(--trading-font-mono);
+}
+
+/* ============================================================================
+   UTILITY CLASSES
+   ============================================================================ */
+
+.text-primary { color: var(--trading-text-primary); }
+.text-secondary { color: var(--trading-text-secondary); }
+.text-tertiary { color: var(--trading-text-tertiary); }
+.text-profit { color: var(--trading-profit); }
+.text-loss { color: var(--trading-loss); }
+.text-muted { color: var(--trading-text-tertiary); opacity: 0.7; }
+
+.bg-primary { background-color: var(--trading-bg-primary); }
+.bg-secondary { background-color: var(--trading-bg-secondary); }
+.bg-tertiary { background-color: var(--trading-bg-tertiary); }
+
+.border { border: 1px solid var(--trading-border); }
+.border-top { border-top: 1px solid var(--trading-border); }
+.border-bottom { border-bottom: 1px solid var(--trading-border); }
+.border-left { border-left: 1px solid var(--trading-border); }
+.border-right { border-right: 1px solid var(--trading-border); }
+
+.rounded-sm { border-radius: var(--trading-radius-sm); }
+.rounded-md { border-radius: var(--trading-radius-md); }
+.rounded-lg { border-radius: var(--trading-radius-lg); }
+
+.shadow-sm { box-shadow: var(--trading-shadow-sm); }
+.shadow { box-shadow: var(--trading-shadow); }
+.shadow-lg { box-shadow: var(--trading-shadow-lg); }
+
+.m-0 { margin: 0; }
+.m-1 { margin: var(--trading-spacing-sm); }
+.m-2 { margin: var(--trading-spacing-md); }
+.m-3 { margin: var(--trading-spacing-lg); }
+
+.p-0 { padding: 0; }
+.p-1 { padding: var(--trading-spacing-sm); }
+.p-2 { padding: var(--trading-spacing-md); }
+.p-3 { padding: var(--trading-spacing-lg); }
+
+.d-none { display: none; }
+.d-flex { display: flex; }
+.d-grid { display: grid; }
+.d-inline { display: inline; }
+.d-inline-block { display: inline-block; }
+
+.flex-row { flex-direction: row; }
+.flex-col { flex-direction: column; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.items-center { align-items: center; }
+.gap-1 { gap: var(--trading-spacing-sm); }
+.gap-2 { gap: var(--trading-spacing-md); }
+.gap-3 { gap: var(--trading-spacing-lg); }
+
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+.min-h-screen { min-height: 100vh; }
+
+.opacity-50 { opacity: 0.5; }
+.opacity-75 { opacity: 0.75; }
+
+.cursor-pointer { cursor: pointer; }
+.cursor-not-allowed { cursor: not-allowed; }
+
+.transition { transition: all 0.3s ease; }
+.transition-fast { transition: all 0.15s ease; }
+.transition-slow { transition: all 0.5s ease; }
+
+/* ============================================================================
+   ANIMATIONS
+   ============================================================================ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.animate-slide-in-up {
+  animation: slideInUp 0.3s ease-out;
+}
+
+.animate-slide-in-down {
+  animation: slideInDown 0.3s ease-out;
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ============================================================================
+   RESPONSIVE UTILITIES
+   ============================================================================ */
+
+/* Small devices (landscape phones, 576px and up) */
+@media (min-width: 576px) {
+  .d-sm-none { display: none; }
+  .d-sm-block { display: block; }
+}
+
+/* Medium devices (tablets, 768px and up) */
+@media (min-width: 768px) {
+  .d-md-none { display: none; }
+  .d-md-block { display: block; }
+}
+
+/* Large devices (desktops, 992px and up) */
+@media (min-width: 992px) {
+  .d-lg-none { display: none; }
+  .d-lg-block { display: block; }
+}
+
+/* Extra large devices (large desktops, 1200px and up) */
+@media (min-width: 1200px) {
+  .d-xl-none { display: none; }
+  .d-xl-block { display: block; }
+}

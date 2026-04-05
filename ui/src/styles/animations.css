@@ -1,0 +1,619 @@
+/* ============================================================================
+   MICRO ANIMATIONS & UX ENHANCEMENTS
+   ============================================================================ */
+
+/* ============================================================================
+   LOADING & SPINNER ANIMATIONS
+   ============================================================================ */
+
+.spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid rgba(52, 152, 219, 0.2);
+  border-top-color: var(--trading-neutral);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.skeleton-loading {
+  background: linear-gradient(
+    90deg,
+    var(--trading-bg-tertiary) 0%,
+    var(--trading-bg-hover) 50%,
+    var(--trading-bg-tertiary) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Loading skeleton elements */
+.skeleton {
+  background: var(--trading-bg-tertiary);
+  border-radius: var(--trading-radius-md);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Skeleton grid layout */
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--trading-spacing-md);
+}
+
+.skeleton-card {
+  height: 100px;
+  border-radius: var(--trading-radius-lg);
+}
+
+/* ============================================================================
+   VALUE CHANGE ANIMATIONS
+   ============================================================================ */
+
+/* Profit value animation */
+.profit-value {
+  color: var(--trading-profit);
+  font-weight: 700;
+  transition: all 0.3s ease;
+}
+
+.profit-value.flash {
+  animation: profit-flash 0.6s ease-out;
+}
+
+@keyframes profit-flash {
+  0% {
+    text-shadow: 0 0 20px rgba(38, 194, 129, 0.8);
+    transform: scale(1.05);
+  }
+  100% {
+    text-shadow: 0 0 0 rgba(38, 194, 129, 0);
+    transform: scale(1);
+  }
+}
+
+/* Loss value animation */
+.loss-value {
+  color: var(--trading-loss);
+  font-weight: 700;
+  transition: all 0.3s ease;
+}
+
+.loss-value.flash {
+  animation: loss-flash 0.6s ease-out;
+}
+
+@keyframes loss-flash {
+  0% {
+    text-shadow: 0 0 20px rgba(231, 76, 60, 0.8);
+    transform: scale(1.05);
+  }
+  100% {
+    text-shadow: 0 0 0 rgba(231, 76, 60, 0);
+    transform: scale(1);
+  }
+}
+
+/* Directional indicators */
+.indicator-up {
+  color: var(--trading-profit);
+  display: inline-block;
+  animation: bounce-up 0.6s ease-out;
+  margin-left: 0.25rem;
+}
+
+.indicator-down {
+  color: var(--trading-loss);
+  display: inline-block;
+  animation: bounce-down 0.6s ease-out;
+  margin-left: 0.25rem;
+}
+
+@keyframes bounce-up {
+  0% {
+    transform: translateY(4px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes bounce-down {
+  0% {
+    transform: translateY(-4px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ============================================================================
+   INTERACTIVE HOVER & FOCUS ANIMATIONS
+   ============================================================================ */
+
+/* Generic button hover enhancement */
+button,
+.btn {
+  transition: all 0.2s ease-out;
+  position: relative;
+}
+
+button:not(:disabled):hover,
+.btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+button:not(:disabled):active,
+.btn:not(:disabled):active {
+  transform: translateY(0);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Card hover elevation */
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: pointer;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Interactive row highlighting */
+.interactive-row {
+  transition: all 0.2s ease-out;
+}
+
+.interactive-row:hover {
+  background-color: rgba(52, 152, 219, 0.1);
+  box-shadow: inset 0 0 8px rgba(52, 152, 219, 0.1);
+}
+
+/* Table row glow on selection */
+.selected-row {
+  background-color: rgba(52, 152, 219, 0.15);
+  box-shadow: inset 0 0 0 1px rgba(52, 152, 219, 0.3);
+  animation: row-glow 0.4s ease-out;
+}
+
+@keyframes row-glow {
+  0% {
+    box-shadow: inset 0 0 20px rgba(52, 152, 219, 0.4);
+  }
+  100% {
+    box-shadow: inset 0 0 0 1px rgba(52, 152, 219, 0.3);
+  }
+}
+
+/* ============================================================================
+   METRIC CARD ANIMATIONS
+   ============================================================================ */
+
+.metric-card {
+  transition: all 0.3s ease;
+  transform-origin: center;
+  will-change: transform, box-shadow;
+}
+
+.metric-card:hover {
+  transform: translateY(-2px) scale(1.01);
+  border-color: var(--trading-border-light);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Profit card glow */
+.profit-card.glow {
+  animation: profit-glow 1s ease-out;
+}
+
+@keyframes profit-glow {
+  0% {
+    box-shadow: 0 0 20px rgba(38, 194, 129, 0.4), inset 0 0 20px rgba(38, 194, 129, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(38, 194, 129, 0), inset 0 0 0 rgba(38, 194, 129, 0);
+  }
+}
+
+/* Loss card glow */
+.loss-card.glow {
+  animation: loss-glow 1s ease-out;
+}
+
+@keyframes loss-glow {
+  0% {
+    box-shadow: 0 0 20px rgba(231, 76, 60, 0.4), inset 0 0 20px rgba(231, 76, 60, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(231, 76, 60, 0), inset 0 0 0 rgba(231, 76, 60, 0);
+  }
+}
+
+/* ============================================================================
+   REAL-TIME DATA INDICATORS
+   ============================================================================ */
+
+/* Pulsing live data indicator */
+.live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--trading-text-tertiary);
+}
+
+.live-indicator::before {
+  content: '';
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background-color: var(--trading-profit);
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+}
+
+/* Real-time flash notification */
+.flash-notification {
+  animation: flash-pulse 0.4s ease-out;
+}
+
+@keyframes flash-pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Connection status indicator */
+.connection-status {
+  position: relative;
+}
+
+.connection-status.connected::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--trading-profit), transparent);
+  animation: connection-pulse 1.5s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes connection-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* ============================================================================
+   NOTIFICATION & ALERT ANIMATIONS
+   ============================================================================ */
+
+.notification {
+  animation: slide-in-top 0.4s ease-out, slide-out-top 0.4s ease-out 4.6s forwards;
+}
+
+@keyframes slide-in-top {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-out-top {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+}
+
+/* Success notification */
+.notification.success {
+  background: rgba(38, 194, 129, 0.1);
+  border-color: var(--trading-profit);
+}
+
+.notification.success::before {
+  content: '✓';
+  color: var(--trading-profit);
+  font-weight: bold;
+  margin-right: 0.5rem;
+  animation: bounce-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Error notification */
+.notification.error {
+  background: rgba(231, 76, 60, 0.1);
+  border-color: var(--trading-loss);
+  animation: shake 0.3s ease-out;
+}
+
+.notification.error::before {
+  content: '✕';
+  color: var(--trading-loss);
+  font-weight: bold;
+  margin-right: 0.5rem;
+  animation: bounce-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+@keyframes bounce-in {
+  0% {
+    transform: scale(0) rotate(-45deg);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1) rotate(0);
+    opacity: 1;
+  }
+}
+
+/* Warning notification */
+.notification.warning {
+  background: rgba(243, 156, 18, 0.1);
+  border-color: var(--trading-warning);
+}
+
+/* Info notification */
+.notification.info {
+  background: rgba(52, 152, 219, 0.1);
+  border-color: var(--trading-neutral);
+}
+
+/* ============================================================================
+   PAGE & WIDGET TRANSITION ANIMATIONS
+   ============================================================================ */
+
+/* Widget entrance animation */
+.widget-entrance {
+  animation: widget-slide-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes widget-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Staggered widget cascade */
+.widget-cascade {
+  animation: widget-cascade-in 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.widget-cascade:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.widget-cascade:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.widget-cascade:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.widget-cascade:nth-child(4) {
+  animation-delay: 0.45s;
+}
+
+.widget-cascade:nth-child(5) {
+  animation-delay: 0.6s;
+}
+
+.widget-cascade:nth-child(6) {
+  animation-delay: 0.75s;
+}
+
+@keyframes widget-cascade-in {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Modal entrance animation */
+.modal-enter {
+  animation: modal-fade-in 0.3s ease-out;
+}
+
+.modal-enter-active {
+  animation: modal-scale-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-scale-in {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Sidebar slide animation */
+.sidebar-slide {
+  animation: sidebar-slide-in 0.4s ease-out;
+}
+
+@keyframes sidebar-slide-in {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* ============================================================================
+   ACCESSIBILITY - REDUCED MOTION
+   ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================================
+   PERFORMANCE OPTIMIZATIONS
+   ============================================================================ */
+
+/* Enable GPU acceleration for animations */
+.animate-gpu {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  will-change: transform, opacity;
+}
+
+/* Smooth scrolling for compatible browsers */
+@supports (scroll-behavior: smooth) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ============================================================================
+   RESPONSIVE ANIMATIONS
+   ============================================================================ */
+
+/* Reduce animation intensity on mobile */
+@media (max-width: 768px) {
+  .metric-card:hover {
+    transform: translateY(-1px) scale(1.005);
+  }
+
+  .card-hover:hover {
+    transform: translateY(-2px) scale(1.01);
+  }
+
+  .widget-cascade {
+    animation: widget-cascade-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .notification {
+    animation: slide-in-top 0.3s ease-out, slide-out-top 0.3s ease-out 4.7s forwards;
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  button:not(:disabled):hover,
+  .btn:not(:disabled):hover {
+    transform: none;
+  }
+
+  .card-hover:hover {
+    transform: none;
+  }
+
+  .interactive-row:hover {
+    background-color: transparent;
+  }
+
+  button:not(:disabled):active,
+  .btn:not(:disabled):active {
+    transform: scale(0.98);
+  }
+}

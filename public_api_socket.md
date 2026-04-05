@@ -9,6 +9,7 @@ This document lists all available REST API endpoints and socket events exposed b
 - [REST API Endpoints](#rest-api-endpoints)
   - [System](#system)
   - [Portfolio](#portfolio)
+  - [Market Data](#market-data)
   - [Paper Trading](#paper-trading)
   - [Performance](#performance)
   - [Analytics](#analytics)
@@ -45,112 +46,6 @@ The dashboard HTTP server runs on port **3000** by default (configurable).
 }
 ```
 
-#### `GET /api/status` — Response
-
-```json
-{
-  "trading": false,
-  "mode": "paper",
-  "pairs": ["BTCUSDT", "ETHUSDT"],
-  "lastUpdate": 1712230920000
-}
-```
-
----
-
-### Portfolio
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/portfolio` | Current portfolio snapshot (balance, PnL, open positions) |
-
-#### `GET /api/portfolio` — Response
-
-```json
-{
-  "totalBalance": 0,
-  "availableBalance": 0,
-  "dailyPnl": 0,
-  "openPositions": []
-}
-```
-
----
-
-### Paper Trading
-
-> These endpoints are only available when `TRADING_MODE=paper` is set. They return `404` in live mode.
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/paper-trading/metrics` | Simulated trading metrics (slippage, fees, accuracy, PnL) |
-| `GET` | `/api/paper-trading/validation` | Validation accuracy report for the paper trading engine |
-| `GET` | `/api/paper-trading/executions` | Execution history (fills, timing, success rate) |
-| `POST` | `/api/paper-trading/reset` | Reset all paper trading statistics |
-| `GET` | `/api/paper-trading/export` | Export paper trading data as JSON |
-
-#### `GET /api/paper-trading/metrics` — Response
-
-```json
-{
-  "totalSimulatedTrades": 0,
-  "totalSimulatedVolume": 0,
-  "averageSlippage": "0.00%",
-  "totalSimulatedFees": 0,
-  "executionAccuracy": "100.00%",
-  "largestOrder": 0,
-  "averageOrderSize": 0,
-  "currentOpenPositions": 0,
-  "totalPnl": 0,
-  "dailyPnl": 0,
-  "riskExposure": 0,
-  "availableBalance": 0,
-  "recentSlippage": 0
-}
-```
-
-#### `GET /api/paper-trading/validation` — Response
-
-```json
-{
-  "overallAccuracy": "95.2%",
-  "slippageAccuracy": "93.8%",
-  "feeAccuracy": "97.1%",
-  "executionTimeAccuracy": "94.6%",
-  "status": "EXCELLENT",
-  "lastValidation": 1712230920000,
-  "recommendations": []
-}
-```
-
-#### `GET /api/paper-trading/executions` — Response
-
-```json
-{
-  "executions": [],
-  "totalExecutions": 0,
-  "averageExecutionTime": 0,
-  "successRate": 100
-}
-```
-
-#### `POST /api/paper-trading/reset` — Response
-
-```json
-{ "message": "Paper trading statistics reset successfully" }
-```
-
-#### `GET /api/paper-trading/export` — Response
-
-```json
-{
-  "exportData": {},
-  "timestamp": 1712230920000,
-  "format": "json"
-}
-```
-
----
 
 ### Performance
 
@@ -173,7 +68,8 @@ The dashboard HTTP server runs on port **3000** by default (configurable).
 
 ### Analytics
 
-All analytics endpoints are prefixed with `/api/analytics`.
+All analytics endpoints are prefixed with `/api/analytics`.  
+Each request initialises `TradeAnalyticsService` and `DatabaseService` automatically; a `500` is returned if initialisation fails.
 
 Common query parameters accepted by most `GET` analytics endpoints:
 
@@ -186,19 +82,31 @@ Common query parameters accepted by most `GET` analytics endpoints:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/analytics/summary` | Condensed analytics summary for dashboard widgets |
-| `GET` | `/api/analytics/report` | Full analytics report |
-| `GET` | `/api/analytics/performance/symbol` | Performance breakdown by trading pair |
-| `GET` | `/api/analytics/performance/time-of-day` | Performance breakdown by hour of day |
+| `GET` | `/api/analytics/summary` | Condensed analytics summary — top 3 insights and top 2 warnings |
+| `GET` | `/api/analytics/report` | Full analytics report (all fields) |
+| `GET` | `/api/analytics/performance/symbol` | Performance breakdown by trading symbol |
+| `GET` | `/api/analytics/performance/time-of-day` | Performance breakdown by time of day |
 | `GET` | `/api/analytics/performance/day-of-week` | Performance breakdown by day of week |
-| `GET` | `/api/analytics/drawdown` | Drawdown analysis |
-| `GET` | `/api/analytics/streaks` | Win/loss streak analysis |
-| `GET` | `/api/analytics/risk` | Risk metrics |
-| `GET` | `/api/analytics/trends` | Market trend analysis |
-| `GET` | `/api/analytics/trades` | Paginated trade history |
+| `GET` | `/api/analytics/drawdown` | Drawdown analysis (`report.drawdown`) |
+| `GET` | `/api/analytics/streaks` | Win/loss streak analysis (`report.streaks`) |
+| `GET` | `/api/analytics/risk` | Risk metrics (`report.risk`) |
+| `GET` | `/api/analytics/trends` | Trend analysis (`report.trends`) |
+| `GET` | `/api/analytics/trades` | Trade history with analytics context (paginated) |
 | `GET` | `/api/analytics/stats` | Quick statistics for dashboard widgets |
 | `POST` | `/api/analytics/export` | Export analytics data to file |
-| `DELETE` | `/api/analytics/cache` | Clear the analytics cache |
+| `DELETE` | `/api/analytics/cache` | Clear the analytics in-memory cache |
+
+#### `GET /api/analytics/summary` — Response
+
+```json
+{
+  "summary": { ... },
+  "period": { ... },
+  "insights": [ "...", "...", "..." ],
+  "warnings": [ "...", "..." ],
+  "generated": 1712230920000
+}
+```
 
 #### `GET /api/analytics/trades` — Additional Query Parameters
 
@@ -208,6 +116,50 @@ Common query parameters accepted by most `GET` analytics endpoints:
 | `offset` | `number` | `0` | Page offset |
 | `sortBy` | `string` | `openTime` | Column to sort by |
 | `sortOrder` | `string` | `DESC` | `ASC` or `DESC` |
+
+Each trade row includes computed fields: `outcome` (`WIN` / `LOSS` / `BREAKEVEN`), `pnlRounded`, `pnlPercentRounded`, `openTimeFormatted`, `closeTimeFormatted`, `durationHours`.
+
+#### `GET /api/analytics/trades` — Response
+
+```json
+{
+  "trades": [ { ... } ],
+  "pagination": {
+    "total": 250,
+    "limit": 100,
+    "offset": 0,
+    "pages": 3
+  }
+}
+```
+
+#### `GET /api/analytics/stats` — Response
+
+```json
+{
+  "total": {
+    "trades": 250,
+    "closedTrades": 240,
+    "openTrades": 10,
+    "uniqueSymbols": 5,
+    "totalPnl": 1234.56,
+    "totalFees": 12.34,
+    "winRate": 62.5,
+    "profitFactor": 1.8,
+    "bestTrade": 150.0,
+    "worstTrade": -80.0
+  },
+  "today": {
+    "trades": 12,
+    "pnl": 45.0,
+    "wins": 8
+  },
+  "week": {
+    "trades": 60,
+    "pnl": 320.0
+  }
+}
+```
 
 #### `POST /api/analytics/export` — Request Body
 
@@ -224,113 +176,27 @@ Common query parameters accepted by most `GET` analytics endpoints:
 
 Supported `format` values: `json` | `csv` | `xlsx` | `pdf`
 
----
-
-### Manual Override
-
-> All manual override `POST` endpoints require a `userId` field in the request body. The user must be in the authorized user list (`admin`, `trader1` by default). Unauthorized requests return `401`.
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/manual/emergency-stop` | Immediately halt all trading activity |
-| `POST` | `/api/manual/resume-trading` | Resume trading (requires admin or approval) |
-| `POST` | `/api/manual/close-position` | Close a specific open position |
-| `POST` | `/api/manual/close-all-positions` | Close all open positions |
-| `POST` | `/api/manual/pause-trading` | Temporarily pause automatic trade execution |
-| `POST` | `/api/manual/adjust-parameter` | Update a strategy parameter at runtime |
-| `POST` | `/api/manual/update-threshold` | Update a risk threshold value |
-| `POST` | `/api/manual/approve-command` | Approve a pending override command |
-| `POST` | `/api/manual/reject-command` | Reject a pending override command |
-| `GET` | `/api/manual/commands` | List all recorded override commands |
-| `GET` | `/api/manual/parameters` | List current strategy parameters |
-| `GET` | `/api/manual/thresholds` | List current risk thresholds |
-| `GET` | `/api/manual/status` | Full system status snapshot |
-
-#### `POST /api/manual/emergency-stop` — Request Body
+#### `POST /api/analytics/export` — Response
 
 ```json
 {
-  "userId": "admin",
-  "reason": "Unusual market volatility"
+  "success": true,
+  "filePath": "/exports/analytics_2026-04-05.json",
+  "format": "json",
+  "generated": 1712230920000
 }
 ```
 
-#### `POST /api/manual/resume-trading` — Request Body
+#### `DELETE /api/analytics/cache` — Response
 
 ```json
 {
-  "userId": "admin",
-  "reason": "Market conditions normalized"
+  "success": true,
+  "message": "Analytics cache cleared",
+  "timestamp": 1712230920000
 }
 ```
 
-#### `POST /api/manual/close-position` — Request Body
-
-```json
-{
-  "userId": "admin",
-  "positionId": "pos_1712230920000",
-  "reason": "Taking profits manually"
-}
-```
-
-#### `POST /api/manual/close-all-positions` — Request Body
-
-```json
-{
-  "userId": "admin",
-  "reason": "End of trading session"
-}
-```
-
-#### `POST /api/manual/pause-trading` — Request Body
-
-```json
-{
-  "userId": "admin",
-  "reason": "Scheduled maintenance"
-}
-```
-
-#### `POST /api/manual/adjust-parameter` — Request Body
-
-```json
-{
-  "userId": "admin",
-  "parameter": "riskPerTrade",
-  "value": 0.01
-}
-```
-
-Available adjustable parameters:
-
-| Parameter | Type | Range | Description |
-|-----------|------|-------|-------------|
-| `riskPerTrade` | `number` | 0.001 – 0.05 | Max risk per trade as a fraction of balance |
-| `maxConcurrentTrades` | `number` | 1 – 20 | Maximum simultaneous open positions |
-| `stopLossPercentage` | `number` | 0.005 – 0.1 | Stop loss percentage |
-| `takeProfitPercentage` | `number` | 0.005 – 0.2 | Take profit percentage |
-| `tradingEnabled` | `boolean` | — | Enable or disable automatic trading |
-
-#### `POST /api/manual/update-threshold` — Request Body
-
-```json
-{
-  "userId": "admin",
-  "metric": "DAILY_LOSS",
-  "threshold": -0.04
-}
-```
-
-Available risk threshold metrics:
-
-| Metric | Default Threshold | Action |
-|--------|-------------------|--------|
-| `DAILY_LOSS` | `-0.05` | `EMERGENCY_STOP` |
-| `DRAWDOWN` | `-0.15` | `REDUCE_EXPOSURE` |
-| `EXPOSURE` | `0.80` | `STOP_NEW_TRADES` |
-
----
 
 ## Socket Events (Socket.IO)
 
@@ -345,6 +211,10 @@ Events that a connected browser client can send to the server:
 | `manual-control` | `{ action, user }` | Request a manual control action |
 | `update-parameter` | `{ parameter, oldValue, newValue }` | Request a strategy parameter change |
 | `emergency-stop` | `{ reason, user }` | Request an emergency stop |
+| `subscribe:ticker` | `{ symbol }` | Subscribe to real-time ticker updates for a symbol |
+| `unsubscribe:ticker` | `{ symbol }` | Unsubscribe from ticker updates |
+| `subscribe:candles` | `{ symbol, interval? }` | Subscribe to real-time candle updates (default interval: `5m`) |
+| `unsubscribe:candles` | `{ symbol, interval? }` | Unsubscribe from candle updates |
 | `disconnect` | — | Fires automatically when the client disconnects |
 
 #### `manual-control` Payload Example
@@ -366,18 +236,23 @@ Events that a connected browser client can send to the server:
 }
 ```
 
-#### `emergency-stop` Payload Example
+#### `subscribe:ticker` Payload Example
 
 ```json
-{
-  "reason": "Manual stop requested",
-  "user": "admin"
-}
+{ "symbol": "BTCUSDT" }
 ```
 
----
+On subscribe the server immediately emits a `market:ticker` snapshot if data is available.
 
-### Server → Client
+#### `subscribe:candles` Payload Example
+
+```json
+{ "symbol": "BTCUSDT", "interval": "5m" }
+```
+
+On subscribe the server immediately emits a `market:candles:snapshot` with up to 100 recent candles.
+
+
 
 Events broadcast by the server to connected clients:
 
@@ -387,7 +262,11 @@ Events broadcast by the server to connected clients:
 | `portfolio-update` | → all clients | Portfolio data changed (balance, positions, PnL) |
 | `new-signal` | → all clients | A new trading signal was generated |
 | `trade-executed` | → all clients | A trade order was executed |
-| `market-data` | → all clients | Real-time market data update |
+| `market-data` | → all clients | Real-time market data update (broadcast to all) |
+| `market:ticker` | → subscribed room | Real-time ticker update for a specific symbol (room: `BTCUSDT`) |
+| `market:candle` | → subscribed room | Real-time candle update for a symbol+interval (room: `BTCUSDT_5m`) |
+| `market:candles:snapshot` | → requesting client | Full candle history snapshot sent on `subscribe:candles` |
+| `market:metrics` | → all clients | Stream performance metrics (every 30 s) |
 | `system-status` | → all clients | System status changed (e.g. emergency stop) |
 | `system-update` | → all clients | Generic system update (e.g. manual control action) |
 | `emergency-alert` | → all clients | Emergency alert broadcast |

@@ -1,20 +1,29 @@
 import express from 'express';
+import cors from 'cors';
 import http from 'http';
 import { Server } from 'socket.io';
-import path from 'path';
 import config from '../config';
 import { DashboardData } from '../types';
 import detectPort from 'detect-port';
 import { logger } from '../services/logger';
+import { MarketDataService } from '../services/marketDataService';
 
 /**
  * Dashboard service for real-time monitoring
  */
+/** Normalize a symbol like 'BTC/USD' or 'BTC/USDT' to Binance format 'BTCUSDT' */
+function normalizeSymbol(symbol: string): string {
+  let s = symbol.replace('/', '').toUpperCase();
+  if (s.endsWith('USD') && !s.endsWith('USDT')) s += 'T';
+  return s;
+}
+
 export class DashboardService {
   private app: express.Application;
   private server: http.Server;
   private io: Server;
   private isRunning: boolean = false;
+  private marketDataService: MarketDataService | null = null;
 
   constructor() {
     this.app = express();
@@ -36,7 +45,7 @@ export class DashboardService {
    */
   private setupMiddleware(): void {
     this.app.use(express.json());
-    this.app.use(express.static(path.join(__dirname, 'public')));
+    this.app.use(cors());
   }
 
   /**
@@ -56,121 +65,6 @@ export class DashboardService {
       });
     });
 
-    // Portfolio endpoint
-    this.app.get('/api/portfolio', (_req, res) => {
-      // This will be connected to the trading bot's portfolio data
-      res.json({
-        totalBalance: 0,
-        availableBalance: 0,
-        dailyPnl: 0,
-        openPositions: []
-      });
-    });
-
-    // Paper trading metrics endpoint
-    this.app.get('/api/paper-trading/metrics', (_req, res) => {
-      if (config.trading.mode === 'paper') {
-        // This will be connected to the paper trading service
-        res.json({
-          totalSimulatedTrades: 0,
-          totalSimulatedVolume: 0,
-          averageSlippage: '0.00%',
-          totalSimulatedFees: 0,
-          executionAccuracy: '100.00%',
-          largestOrder: 0,
-          averageOrderSize: 0,
-          currentOpenPositions: 0,
-          totalPnl: 0,
-          dailyPnl: 0,
-          riskExposure: 0,
-          availableBalance: 0,
-          recentSlippage: 0
-        });
-      } else {
-        res.status(404).json({ error: 'Paper trading mode not active' });
-      }
-    });
-
-    // Paper trading validation endpoint
-    this.app.get('/api/paper-trading/validation', async (_req, res) => {
-      if (config.trading.mode === 'paper') {
-        try {
-          // This would connect to the validation service
-          res.json({
-            overallAccuracy: '95.2%',
-            slippageAccuracy: '93.8%',
-            feeAccuracy: '97.1%',
-            executionTimeAccuracy: '94.6%',
-            status: 'EXCELLENT',
-            lastValidation: Date.now(),
-            recommendations: []
-          });
-        } catch (error) {
-          res.status(500).json({ error: 'Validation service unavailable' });
-        }
-      } else {
-        res.status(404).json({ error: 'Paper trading mode not active' });
-      }
-    });
-
-    // Paper trading execution history endpoint
-    this.app.get('/api/paper-trading/executions', (_req, res) => {
-      if (config.trading.mode === 'paper') {
-        res.json({
-          executions: [],
-          totalExecutions: 0,
-          averageExecutionTime: 0,
-          successRate: 100
-        });
-      } else {
-        res.status(404).json({ error: 'Paper trading mode not active' });
-      }
-    });
-
-    // Reset paper trading stats endpoint
-    this.app.post('/api/paper-trading/reset', (_req, res) => {
-      if (config.trading.mode === 'paper') {
-        // This would connect to the paper trading service reset method
-        res.json({ message: 'Paper trading statistics reset successfully' });
-      } else {
-        res.status(404).json({ error: 'Paper trading mode not active' });
-      }
-    });
-
-    // Export paper trading data endpoint
-    this.app.get('/api/paper-trading/export', (_req, res) => {
-      if (config.trading.mode === 'paper') {
-        // This would connect to the paper trading service export method
-        res.json({
-          exportData: {},
-          timestamp: Date.now(),
-          format: 'json'
-        });
-      } else {
-        res.status(404).json({ error: 'Paper trading mode not active' });
-      }
-    });
-
-    // Trading status endpoint
-    this.app.get('/api/status', (_req, res) => {
-      res.json({
-        trading: false,
-        mode: config.trading.mode,
-        pairs: config.trading.pairs,
-        lastUpdate: Date.now()
-      });
-    });
-
-    // Serve main dashboard page
-    this.app.get('/', (_req, res) => {
-      res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    });
-    
-    // Manual control dashboard
-    this.app.get('/control', (_req, res) => {
-      res.sendFile(path.join(__dirname, 'public', 'control.html'));
-    });
-
     // Performance projections endpoint for 1:2 risk-reward ratio
     this.app.get('/api/performance/projections', (_req, res) => {
       try {
@@ -188,6 +82,38 @@ export class DashboardService {
       } catch (error) {
         res.status(500).json({ error: 'Failed to get performance projections' });
       }
+    });
+
+    // Market data endpoints
+    this.app.get('/api/market/candles', (req, res) => {
+      if (!this.marketDataService) {
+        res.json({ success: true, data: [], timestamp: Date.now() });
+        return;
+      }
+      const symbol = normalizeSymbol(String(req.query.symbol || ''));
+      const interval = String(req.query.interval || '5m');
+      const limit = Math.min(Number(req.query.limit) || 100, 1000);
+      const candles = this.marketDataService.getCandles(symbol, interval, limit);
+      res.json({ success: true, data: candles, timestamp: Date.now() });
+    });
+
+    this.app.get('/api/market/ticker', (req, res) => {
+      if (!this.marketDataService) {
+        res.json({ success: true, data: null, timestamp: Date.now() });
+        return;
+      }
+      const symbol = normalizeSymbol(String(req.query.symbol || ''));
+      const data = this.marketDataService.getMarketData(symbol);
+      res.json({ success: true, data, timestamp: Date.now() });
+    });
+
+    this.app.get('/api/market/status', (_req, res) => {
+      if (!this.marketDataService) {
+        res.json({ success: true, data: { active: false }, timestamp: Date.now() });
+        return;
+      }
+      const status = this.marketDataService.getConnectionStatus();
+      res.json({ success: true, data: status, timestamp: Date.now() });
     });
   }
 
@@ -427,6 +353,13 @@ export class DashboardService {
    */
   broadcastExecutionMetrics(metrics: any): void {
     this.io.emit('execution-metrics', metrics);
+  }
+
+  /**
+   * Wire up a MarketDataService so the /api/market/* routes can serve live data
+   */
+  setMarketDataService(mds: MarketDataService): void {
+    this.marketDataService = mds;
   }
 
   /**

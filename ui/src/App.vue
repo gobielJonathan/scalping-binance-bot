@@ -1,11 +1,13 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import DashboardLayout from './components/layout/DashboardLayout.vue'
+</script>
 
 <template>
-  <h1>You did it!</h1>
-  <p>
-    Visit <a href="https://vuejs.org/" target="_blank" rel="noopener">vuejs.org</a> to read the
-    documentation
-  </p>
+  <DashboardLayout />
 </template>
 
-<style scoped></style>
+<style>
+@import './styles/theme.css';
+@import './styles/responsive.css';
+@import './styles/animations.css';
+</style>

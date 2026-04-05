@@ -59,6 +59,7 @@ class CryptoScalpingBot {
 
       // Initialize MarketDataService with BinanceService
       this.marketDataService = new MarketDataService(services.binanceService);
+      this.dashboard.setMarketDataService(this.marketDataService);
       this.setupMarketDataEventHandlers();
 
       // Initialize PairSelectorService for dynamic pair selection

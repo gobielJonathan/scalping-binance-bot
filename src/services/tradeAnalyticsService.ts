@@ -199,14 +199,18 @@ export class TradeAnalyticsService {
       throw new Error('No trades found for the specified criteria');
     }
 
-    const summary = await this.calculateSummaryMetrics(trades);
-    const performance = await this.calculatePerformanceMetrics(trades);
-    const risk = await this.calculateRiskMetrics(trades);
-    const drawdown = await this.analyzeDrawdowns(trades);
-    const streaks = await this.analyzeWinLossStreaks(trades);
-    const trends = await this.analyzeTrends(trades);
-    const insights = await this.generateInsights(trades, summary, risk);
-    const warnings = await this.generateWarnings(trades, summary, risk);
+    const [summary, performance, risk, drawdown, streaks, trends] = await Promise.all([
+      this.calculateSummaryMetrics(trades),
+      this.calculatePerformanceMetrics(trades),
+      this.calculateRiskMetrics(trades),
+      this.analyzeDrawdowns(trades),
+      this.analyzeWinLossStreaks(trades),
+      this.analyzeTrends(trades),
+    ]);
+    const [insights, warnings] = await Promise.all([
+      this.generateInsights(trades, summary, risk),
+      this.generateWarnings(trades, summary, risk),
+    ]);
 
     const report: AnalyticsReport = {
       generated: Date.now(),

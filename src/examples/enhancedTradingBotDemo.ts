@@ -22,6 +22,7 @@ import { DashboardService } from '../dashboard/dashboardService';
 import { BinanceService } from '../services/binanceService';
 import logger from '../services/logger';
 import config from '../config';
+import { MarketData, OrderRequest } from '../types';
 
 export class EnhancedTradingBotDemo {
   private riskManager!: RiskManager;
@@ -272,14 +273,14 @@ export class EnhancedTradingBotDemo {
     console.log('\n⚡ SIMULATING EXECUTION OPTIMIZATION');
     console.log('===================================');
 
-    const mockOrderRequest = {
+    const mockOrderRequest: OrderRequest = {
       symbol: 'BTCUSDT',
-      side: 'BUY' as 'BUY',
-      type: 'MARKET' as 'MARKET',
+      side: 'BUY',
+      type: 'MARKET',
       quantity: 0.01
     };
 
-    const mockMarketData = {
+    const mockMarketData: MarketData = {
       symbol: 'BTCUSDT',
       price: 50000,
       volume24h: 1000000,

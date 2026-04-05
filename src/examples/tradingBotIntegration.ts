@@ -224,12 +224,13 @@ async function demonstrateIntegration(): Promise<void> {
 
     // Place a sample trade (paper mode)
     if (config.trading.mode === 'paper') {
-      await bot.placeTradeOrder({
+      const sampleOrder: OrderRequest = {
         symbol: 'BTCUSDT',
         side: 'BUY',
         type: 'MARKET',
         quantity: 0.001
-      });
+      };
+      await bot.placeTradeOrder(sampleOrder);
     }
 
     // Run for 10 seconds to see price updates

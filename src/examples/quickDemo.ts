@@ -1,4 +1,5 @@
 import { BinanceService } from '../services/binanceService';
+import { OrderRequest } from '../types';
 
 async function quickDemo() {
   console.log('Binance Service Quick Demo');
@@ -8,12 +9,13 @@ async function quickDemo() {
     console.log('✅ Service initialized');
     
     // This works in paper mode
-    const paperOrder = await service.placeOrder({
+    const paperOrderRequest: OrderRequest = {
       symbol: 'BTCUSDT',
       side: 'BUY',
       type: 'MARKET',
       quantity: 0.001
-    });
+    };
+    const paperOrder = await service.placeOrder(paperOrderRequest);
     
     console.log('✅ Paper order placed:', paperOrder.orderId);
     

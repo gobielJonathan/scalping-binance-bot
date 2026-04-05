@@ -1,5 +1,6 @@
 import { BinanceService } from '../services/binanceService';
 import config from '../config/index';
+import { OrderRequest } from '../types';
 
 // Mock WebSocket for testing
 jest.mock('ws');
@@ -88,10 +89,10 @@ describe('BinanceService', () => {
 
   describe('Order Management', () => {
     it('should simulate order placement in paper trading mode', async () => {
-      const orderRequest = {
+      const orderRequest: OrderRequest = {
         symbol: 'BTCUSDT',
-        side: 'BUY' as const,
-        type: 'MARKET' as const,
+        side: 'BUY',
+        type: 'MARKET',
         quantity: 0.001,
         price: 50000
       };

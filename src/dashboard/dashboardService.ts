@@ -7,6 +7,8 @@ import { DashboardData } from '../types';
 import detectPort from 'detect-port';
 import { logger } from '../services/logger';
 import { MarketDataService } from '../services/marketDataService';
+import analyticsRoutes from './analyticsRoutes';
+import performanceProjectionService from '../services/performanceProjectionService';
 
 /**
  * Dashboard service for real-time monitoring
@@ -53,7 +55,6 @@ export class DashboardService {
    */
   private setupRoutes(): void {
     // Import analytics routes
-    const analyticsRoutes = require('./analyticsRoutes').default;
     this.app.use('/api/analytics', analyticsRoutes);
 
     // Health check endpoint
@@ -68,7 +69,6 @@ export class DashboardService {
     // Performance projections endpoint for 1:2 risk-reward ratio
     this.app.get('/api/performance/projections', (_req, res) => {
       try {
-        const performanceProjectionService = require('../services/performanceProjectionService').default;
         const projections = performanceProjectionService.getFormattedSummary();
         const comparison = performanceProjectionService.getPerformanceComparison();
         const validation = performanceProjectionService.validateConfiguration();

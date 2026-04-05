@@ -6,6 +6,7 @@ import { PaperTradingService } from '../src/services/paperTradingService';
 import { RiskManager } from '../src/services/riskManager';
 import { logger } from '../src/services/logger';
 import config from '../src/config';
+import fs from 'fs';
 
 interface ValidationOptions {
   days?: number;
@@ -252,7 +253,6 @@ class PaperTradingValidationScript {
     }
 
     if (outputFile) {
-      const fs = require('fs');
       fs.writeFileSync(outputFile, output);
       console.log(`Report saved to ${outputFile}`);
     } else {

@@ -80,9 +80,13 @@ export class DashboardService {
           timestamp: Date.now()
         });
       } catch (error) {
+        const errorWithCode =
+          typeof error === 'object' && error !== null && 'code' in error
+            ? { code: String((error as { code?: unknown }).code) }
+            : {};
         logger.error('Performance projections endpoint failed:', {
           error: error instanceof Error
-            ? { stack: error.stack, code: (error as any).code }
+            ? { stack: error.stack, ...errorWithCode }
             : { stack: String(error) }
         });
         res.status(500).json({ error: 'Failed to get performance projections' });

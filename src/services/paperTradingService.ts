@@ -15,6 +15,7 @@ import {
   calculateStopLoss,
   calculateTakeProfit
 } from '../utils/helpers';
+import { OrderType } from 'binance-api-node';
 
 interface PaperTradeExecution {
   orderId: string;
@@ -396,7 +397,7 @@ export class PaperTradingService {
       const closeOrderRequest: OrderRequest = {
         symbol: position.symbol,
         side: position.side === 'BUY' ? 'SELL' : 'BUY',
-        type: 'MARKET',
+        type: OrderType.MARKET,
         quantity: position.quantity
       };
 

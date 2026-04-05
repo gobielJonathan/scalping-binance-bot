@@ -5,6 +5,8 @@ import { DatabaseService } from '../database/databaseService';
 import { calculateStopLoss, calculateTakeProfit, generateTradeId } from '../utils/helpers';
 import { logger } from './logger';
 import config from '../config';
+import BinanceService from './binanceService';
+import { OrderType } from 'binance-api-node';
 
 /**
  * Order management service for handling trade execution
@@ -13,7 +15,7 @@ export class OrderManager {
   private riskManager: RiskManager;
   private paperTradingService: PaperTradingService | null = null;
   private paperTradingMode: boolean;
-  private binanceService: any; // Will be injected when available
+  private binanceService: BinanceService; // Will be injected when available
   private dbService: DatabaseService | null = null;
 
   constructor(riskManager: RiskManager) {
@@ -24,7 +26,7 @@ export class OrderManager {
   /**
    * Set the Binance service (dependency injection)
    */
-  setBinanceService(binanceService: any): void {
+  setBinanceService(binanceService: BinanceService): void {
     this.binanceService = binanceService;
   }
 
@@ -135,18 +137,48 @@ export class OrderManager {
         if (riskCheck.warnings) {
           riskCheck.warnings.forEach(warning => logger.warn(`Risk Warning: ${warning}`));
         }
-        
+
+        // ── Sync real balance before placing entry order ─────────────────
+        // The risk manager's availableBalance drifts from reality on restart.
+        // Always query the actual free USDT and cap quantity accordingly.
+        let safeQuantity = finalQuantity;
+        if (orderRequest.side === 'BUY') {
+          try {
+            const balances = await this.binanceService.getBalance('USDT');
+            const freeUsdt = balances[0]?.free ?? 0;
+            if (freeUsdt > 0) {
+              this.riskManager.syncBalance(freeUsdt);
+              // Reserve 0.2% for taker fee so we never exceed available funds
+              const maxAffordable = (freeUsdt * 0.998) / marketData.price;
+              if (safeQuantity > maxAffordable) {
+                logger.warn(`[OrderManager] Capping qty ${safeQuantity.toFixed(6)} → ${maxAffordable.toFixed(6)} (free USDT: ${freeUsdt})`);
+                safeQuantity = maxAffordable;
+              }
+            }
+          } catch (balErr) {
+            logger.warn('[OrderManager] Could not fetch USDT balance for pre-order check: ' + String(balErr));
+          }
+        }
+        // ──────────────────────────────────────────────────────────────────
+
         // Execute the order on Binance
         const binanceOrder = await this.binanceService.placeOrder({
           symbol: orderRequest.symbol,
           side: orderRequest.side,
-          type: 'MARKET',
-          quantity: finalQuantity
+          type: OrderType.MARKET,
+          quantity: safeQuantity
         });
 
-        // Update position with actual execution data
-        position.entryPrice = binanceOrder.price || marketData.price;
-        position.fees = binanceOrder.commission || 0;
+        // Parse actual average fill price from the order response.
+        // For MARKET orders, .price is "0.00000"; the real price is
+        // cummulativeQuoteQty / executedQty.
+        const execQty = parseFloat(String(binanceOrder.executedQty ?? 0));
+        const quoteQty = parseFloat(String((binanceOrder as any).cummulativeQuoteQty ?? 0));
+        const fillPrice = execQty > 0 && quoteQty > 0 ? quoteQty / execQty : parseFloat(String(binanceOrder.price ?? 0));
+        position.entryPrice = fillPrice > 0 ? fillPrice : marketData.price;
+        // Sync quantity to what Binance actually executed (may differ after precision rounding)
+        if (execQty > 0) position.quantity = execQty;
+        position.fees = parseFloat(String(binanceOrder.commission ?? 0)) || 0;
         
         // Add to risk manager
         this.riskManager.addPosition(position);
@@ -227,12 +259,28 @@ export class OrderManager {
         // Determine the opposite side for closing
         const closeSide = position.side === 'BUY' ? 'SELL' : 'BUY';
         
+        // Resolve base asset (e.g. ETHUSDT → ETH) to check real available balance,
+        // avoiding -1102 Insufficient balance when stored qty > actual holdings.
+        let closeQty = position.quantity;
+        try {
+          const quoteAssets = ['USDT', 'BUSD', 'BNB', 'BTC'];
+          const baseAsset = quoteAssets.reduce((s, q) => s.endsWith(q) ? s.slice(0, -q.length) : s, position.symbol);
+          const balances = await this.binanceService.getBalance(baseAsset);
+          const available = balances[0]?.free ?? 0;
+          if (available > 0 && available < closeQty) {
+            logger.warn(`[OrderManager] Adjusting close qty ${closeQty} → ${available} (actual on-exchange balance)`);
+            closeQty = available;
+          }
+        } catch {
+          // If balance lookup fails, proceed with stored quantity
+        }
+
         // Execute closing order on Binance
         const closeOrder = await this.binanceService.placeOrder({
           symbol: position.symbol,
           side: closeSide,
-          type: 'MARKET',
-          quantity: position.quantity
+          type: OrderType.MARKET,
+          quantity: closeQty
         });
 
         // Close the position in risk manager
@@ -258,12 +306,20 @@ export class OrderManager {
     try {
       const stopSide = position.side === 'BUY' ? 'SELL' : 'BUY';
       
+      // STOP_LOSS_LIMIT requires both stopPrice (trigger) and price (limit).
+      // Add a 0.5% slippage buffer so the order can still fill if price gaps.
+      const limitPrice = stopSide === 'SELL'
+        ? position.stopLoss * 0.995  // 0.5% below trigger for SELL stop
+        : position.stopLoss * 1.005; // 0.5% above trigger for BUY stop
+
       await this.binanceService.placeOrder({
         symbol: position.symbol,
         side: stopSide,
-        type: 'STOP_LOSS',
+        type: OrderType.STOP_LOSS_LIMIT,
         quantity: position.quantity,
-        stopPrice: position.stopLoss
+        stopPrice: position.stopLoss,
+        price: limitPrice,
+        timeInForce: 'GTC',
       });
 
       logger.info(`Stop loss order placed for position ${position.id} at $${position.stopLoss}`);

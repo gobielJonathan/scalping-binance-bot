@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import config from '../config';
 import { LogContext, TradeLogEntry } from '../types';
+import { isObj } from '../utils/is';
 
 interface LogMetadata {
   source?: string;
@@ -53,17 +54,39 @@ class Logger {
     }
     
     if (metadata?.context) {
-      const contextStr = Object.entries(metadata.context)
-        .map(([k, v]) => `${k}:${v}`)
-        .join(',');
-      formattedMessage += ` {${contextStr}}`;
+       formattedMessage+= JSON.stringify(metadata, null, 2) + '\n';
     }
     
     if (metadata?.performance) {
       formattedMessage += ` (${metadata.performance.duration}ms)`;
     }
     
+    
+
     return formattedMessage;
+  }
+
+  // Keywords whose presence in a message warrants console output at INFO level.
+  // Everything else is still written to the log file but silenced in the terminal.
+  private static readonly IMPORTANT_PATTERNS = [
+    /initializ/i,
+    /starting|started|running|stopped|shutdown|shutting/i,
+    /connected|disconnected|server/i,
+    /\[paper trade\]|\[live trade\]/i,
+    /order placed|order rejected|order executed|order failed/i,
+    /position (opened|closed|close)/i,
+    /paper trade executed|paper position closed/i,
+    /trade executed|trade closed/i,
+    /emergency stop/i,
+    /trading (paused|resumed)/i,
+    /p&l:/i,
+    /bot (is now|stopped)/i,
+    /dashboard server/i,
+    /seeded portfolio/i,
+  ];
+
+  private shouldPrintToConsole(message: string): boolean {
+    return Logger.IMPORTANT_PATTERNS.some((re) => re.test(message));
   }
 
   error(message: string, metadata?: LogMetadata): void {
@@ -88,15 +111,15 @@ class Logger {
   info(message: string, metadata?: LogMetadata): void {
     const formattedMessage = this.formatMessage(message, metadata);
     this.simpleLogger.info(formattedMessage);
-    console.log('ℹ️', formattedMessage);
+    if (this.shouldPrintToConsole(formattedMessage)) {
+      console.log('ℹ️', formattedMessage);
+    }
   }
 
   debug(message: string, metadata?: LogMetadata): void {
     const formattedMessage = this.formatMessage(message, metadata);
     this.simpleLogger.debug(formattedMessage);
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('🔍', formattedMessage);
-    }
+    // debug messages are written to file only — never printed to console
   }
 
   // Specialized logging methods

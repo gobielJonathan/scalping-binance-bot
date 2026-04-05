@@ -556,6 +556,17 @@ export class RiskManager {
   }
 
   /**
+   * Sync internal balance with the real on-exchange USDT balance.
+   * Call this before placing a live order to prevent "Insufficient balance" errors
+   * that occur when the bot restarts and the in-memory state drifts from reality.
+   */
+  syncBalance(realUsdtBalance: number): void {
+    const lockedBalance = this.portfolio.lockedBalance;
+    this.portfolio.availableBalance = Math.max(0, realUsdtBalance - lockedBalance);
+    this.portfolio.totalBalance = realUsdtBalance + this.portfolio.totalPnl;
+  }
+
+  /**
    * Get current portfolio status
    */
   getPortfolio(): Portfolio {

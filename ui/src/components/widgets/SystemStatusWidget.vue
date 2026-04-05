@@ -81,7 +81,7 @@ const getTradingModeIcon = () => {
       return '🤖'
     case 'manual':
       return '👤'
-    case 'paper':
+    case 'live':
       return '📋'
     default:
       return '⚙️'

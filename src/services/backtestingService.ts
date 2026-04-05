@@ -9,6 +9,7 @@ import { ScalpingStrategy } from '../strategies/scalpingStrategy';
 import { RiskManager } from './riskManager';
 import logger from './logger';
 import { calculatePnL, generateTradeId } from '../utils/helpers';
+import { OrderType } from 'binance-api-node';
 
 export interface BacktestConfig {
   symbol: string;
@@ -235,7 +236,7 @@ export class BacktestingEngine {
       const orderRequest: OrderRequest = {
         symbol: this.config.symbol,
         side: 'BUY',
-        type: 'MARKET',
+        type: OrderType.MARKET, // Default to market, risk manager may adjust
         quantity: positionSize,
         price
       };

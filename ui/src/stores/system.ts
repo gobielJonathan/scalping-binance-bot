@@ -77,7 +77,7 @@ export const useSystemStore = defineStore('system', () => {
 
   // Trading system state
   const tradingEnabled = ref(true)
-  const tradingMode = ref<string>('auto') // 'auto', 'manual', 'paper'
+  const tradingMode = ref<string>('auto') // 'auto', 'manual', 'live'
   const systemStatus_trading = ref<'running' | 'paused' | 'stopped' | 'error'>('running')
 
   // ============================================================================

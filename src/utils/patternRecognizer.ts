@@ -638,33 +638,338 @@ export class PatternRecognizer {
   }
 
   private detectPennantPattern(candles: Candle[], centerIndex: number): ScalpingPattern | null {
-    // Similar to flag but with converging trendlines
-    // Implementation would be similar to flag but checking for converging highs and lows
-    return null; // Placeholder
+    if (centerIndex < 12 || centerIndex > candles.length - 3) return null;
+
+    // Pennant = strong pole + converging trendlines (like a small symmetrical triangle)
+    const poleCandles = candles.slice(centerIndex - 12, centerIndex - 6);
+    const pennantCandles = candles.slice(centerIndex - 6, centerIndex);
+
+    // Require a strong pole move (≥ 1.5%)
+    const poleMove = (poleCandles[poleCandles.length - 1].close - poleCandles[0].close) / poleCandles[0].close;
+    if (Math.abs(poleMove) < 0.015) return null;
+
+    // Fit linear regression on pennant highs and lows
+    const highSlope = this.linRegSlope(pennantCandles.map(c => c.high));
+    const lowSlope = this.linRegSlope(pennantCandles.map(c => c.low));
+
+    // Highs must be falling and lows must be rising (converging)
+    if (highSlope >= 0 || lowSlope <= 0) return null;
+
+    // Convergence rate: slopes should have similar magnitude
+    const convergence = Math.abs(highSlope) + Math.abs(lowSlope);
+    const balance = Math.min(Math.abs(highSlope), Math.abs(lowSlope)) / Math.max(Math.abs(highSlope), Math.abs(lowSlope));
+    if (balance < 0.3) return null; // Too lopsided — not a pennant
+
+    const pennantHigh = Math.max(...pennantCandles.map(c => c.high));
+    const pennantLow = Math.min(...pennantCandles.map(c => c.low));
+    const consolidationRange = (pennantHigh - pennantLow) / pennantCandles[0].close;
+
+    const direction = poleMove > 0 ? 'bullish' : 'bearish';
+    const breakoutLevel = direction === 'bullish' ? pennantHigh : pennantLow;
+    const measured = Math.abs(poleMove) * poleCandles[0].close;
+    const targetPrice = direction === 'bullish' ? breakoutLevel + measured : breakoutLevel - measured;
+
+    return {
+      name: 'Pennant Pattern',
+      type: 'pennant',
+      direction,
+      breakoutLevel,
+      targetPrice,
+      stopLoss: direction === 'bullish' ? pennantLow : pennantHigh,
+      confidence: 70 + Math.round(balance * 10),
+      timestamp: candles[centerIndex].openTime,
+      expectedDuration: 5,
+      volumeConfirmation: this.checkVolumePattern(candles, centerIndex),
+      priceAction: {
+        entryZone: {
+          min: direction === 'bullish' ? breakoutLevel : breakoutLevel - consolidationRange * pennantCandles[0].close * 0.2,
+          max: direction === 'bullish' ? breakoutLevel + consolidationRange * pennantCandles[0].close * 0.2 : breakoutLevel,
+        },
+        consolidationRange,
+        breakoutStrength: Math.abs(poleMove) * 100,
+      },
+    };
   }
 
   private detectTrianglePattern(candles: Candle[], centerIndex: number): ScalpingPattern | null {
-    // Ascending, descending, or symmetrical triangles
-    // Implementation would analyze trendline convergence
-    return null; // Placeholder
+    if (centerIndex < 10 || centerIndex > candles.length - 3) return null;
+
+    const window = candles.slice(centerIndex - 10, centerIndex);
+    const highs = window.map(c => c.high);
+    const lows = window.map(c => c.low);
+    const highSlope = this.linRegSlope(highs);
+    const lowSlope = this.linRegSlope(lows);
+    const price = window[0].close;
+
+    // Normalise slopes relative to price so thresholds are comparable across assets
+    const normHigh = highSlope / price;
+    const normLow = lowSlope / price;
+    const flatThreshold = 0.00002; // basically flat
+
+    let direction: 'bullish' | 'bearish';
+    let subType: string;
+
+    if (Math.abs(normHigh) < flatThreshold && normLow > flatThreshold) {
+      // Ascending triangle: flat top, rising lows → bullish
+      direction = 'bullish';
+      subType = 'Ascending';
+    } else if (normHigh < -flatThreshold && Math.abs(normLow) < flatThreshold) {
+      // Descending triangle: falling highs, flat bottom → bearish
+      direction = 'bearish';
+      subType = 'Descending';
+    } else if (normHigh < -flatThreshold && normLow > flatThreshold) {
+      // Symmetrical triangle: converging → direction from prior trend
+      const priorMove = (window[0].close - candles[Math.max(centerIndex - 15, 0)].close) / candles[Math.max(centerIndex - 15, 0)].close;
+      direction = priorMove > 0 ? 'bullish' : 'bearish';
+      subType = 'Symmetrical';
+    } else {
+      return null;
+    }
+
+    const windowHigh = Math.max(...highs);
+    const windowLow = Math.min(...lows);
+    const consolidationRange = (windowHigh - windowLow) / price;
+    if (consolidationRange < 0.003 || consolidationRange > 0.05) return null; // too tight or too wide
+
+    const breakoutLevel = direction === 'bullish' ? windowHigh : windowLow;
+    const targetPrice = direction === 'bullish'
+      ? breakoutLevel + (windowHigh - windowLow)
+      : breakoutLevel - (windowHigh - windowLow);
+
+    return {
+      name: `${subType} Triangle`,
+      type: 'triangle',
+      direction,
+      breakoutLevel,
+      targetPrice,
+      stopLoss: direction === 'bullish' ? windowLow : windowHigh,
+      confidence: subType === 'Symmetrical' ? 65 : 75,
+      timestamp: candles[centerIndex].openTime,
+      expectedDuration: 8,
+      volumeConfirmation: this.checkVolumePattern(candles, centerIndex),
+      priceAction: {
+        entryZone: {
+          min: direction === 'bullish' ? breakoutLevel : breakoutLevel - consolidationRange * price * 0.15,
+          max: direction === 'bullish' ? breakoutLevel + consolidationRange * price * 0.15 : breakoutLevel,
+        },
+        consolidationRange,
+        breakoutStrength: consolidationRange * 100,
+      },
+    };
   }
 
   private detectRectanglePattern(candles: Candle[], centerIndex: number): ScalpingPattern | null {
-    // Horizontal support and resistance
-    // Implementation would find parallel horizontal levels
-    return null; // Placeholder
+    if (centerIndex < 10 || centerIndex > candles.length - 3) return null;
+
+    const window = candles.slice(centerIndex - 10, centerIndex);
+    const highs = window.map(c => c.high);
+    const lows = window.map(c => c.low);
+    const price = window[0].close;
+
+    // Both trendlines should be roughly flat
+    const normHighSlope = Math.abs(this.linRegSlope(highs) / price);
+    const normLowSlope = Math.abs(this.linRegSlope(lows) / price);
+    const flatThreshold = 0.00003;
+    if (normHighSlope > flatThreshold || normLowSlope > flatThreshold) return null;
+
+    const rectHigh = Math.max(...highs);
+    const rectLow = Math.min(...lows);
+    const consolidationRange = (rectHigh - rectLow) / price;
+
+    // Ensure meaningful range
+    if (consolidationRange < 0.003 || consolidationRange > 0.03) return null;
+
+    // Require at least 2 touches on each side (within 0.15% tolerance)
+    const topTouches = highs.filter(h => (rectHigh - h) / price < 0.0015).length;
+    const bottomTouches = lows.filter(l => (l - rectLow) / price < 0.0015).length;
+    if (topTouches < 2 || bottomTouches < 2) return null;
+
+    // Direction from prior trend
+    const priorClose = candles[Math.max(centerIndex - 15, 0)].close;
+    const direction: 'bullish' | 'bearish' = window[0].close > priorClose ? 'bullish' : 'bearish';
+    const breakoutLevel = direction === 'bullish' ? rectHigh : rectLow;
+    const targetPrice = direction === 'bullish'
+      ? rectHigh + (rectHigh - rectLow)
+      : rectLow - (rectHigh - rectLow);
+
+    return {
+      name: 'Rectangle Pattern',
+      type: 'rectangle',
+      direction,
+      breakoutLevel,
+      targetPrice,
+      stopLoss: direction === 'bullish' ? rectLow : rectHigh,
+      confidence: 70,
+      timestamp: candles[centerIndex].openTime,
+      expectedDuration: 10,
+      volumeConfirmation: this.checkVolumePattern(candles, centerIndex),
+      priceAction: {
+        entryZone: {
+          min: direction === 'bullish' ? breakoutLevel : breakoutLevel - (rectHigh - rectLow) * 0.1,
+          max: direction === 'bullish' ? breakoutLevel + (rectHigh - rectLow) * 0.1 : breakoutLevel,
+        },
+        consolidationRange,
+        breakoutStrength: consolidationRange * 100,
+      },
+    };
   }
 
   private detectWedgePattern(candles: Candle[], centerIndex: number): ScalpingPattern | null {
-    // Rising or falling wedge patterns
-    // Implementation would analyze converging trendlines with specific characteristics
-    return null; // Placeholder
+    if (centerIndex < 10 || centerIndex > candles.length - 3) return null;
+
+    const window = candles.slice(centerIndex - 10, centerIndex);
+    const highs = window.map(c => c.high);
+    const lows = window.map(c => c.low);
+    const price = window[0].close;
+
+    const highSlope = this.linRegSlope(highs);
+    const lowSlope = this.linRegSlope(lows);
+    const normHigh = highSlope / price;
+    const normLow = lowSlope / price;
+
+    // Both slopes must go in the same direction AND converge
+    const slopeDiff = Math.abs(normHigh - normLow);
+    const sameDirection = (normHigh > 0 && normLow > 0) || (normHigh < 0 && normLow < 0);
+    if (!sameDirection) return null;
+
+    // Must be converging — the upper trendline slope should be less steep (for rising)
+    // or the lower trendline slope should be less steep (for falling)
+    const converging = Math.abs(normHigh) < Math.abs(normLow)
+      ? normHigh > 0 // rising wedge: high slope < low slope
+      : normHigh < 0; // falling wedge: high slope > low slope (closer to zero)
+    if (!converging && Math.abs(normHigh) !== Math.abs(normLow)) {
+      // Actually check properly: trendlines must get closer
+      const rangeStart = highs[0] - lows[0];
+      const rangeEnd = highs[highs.length - 1] - lows[lows.length - 1];
+      if (rangeEnd >= rangeStart) return null; // diverging or parallel
+    }
+
+    const wedgeHigh = Math.max(...highs);
+    const wedgeLow = Math.min(...lows);
+    const consolidationRange = (wedgeHigh - wedgeLow) / price;
+    if (consolidationRange < 0.003) return null;
+
+    // Rising wedge → bearish; Falling wedge → bullish
+    const isRising = normHigh > 0;
+    const direction: 'bullish' | 'bearish' = isRising ? 'bearish' : 'bullish';
+    const breakoutLevel = direction === 'bullish' ? wedgeHigh : wedgeLow;
+    const targetPrice = direction === 'bullish'
+      ? breakoutLevel + (wedgeHigh - wedgeLow) * 0.618
+      : breakoutLevel - (wedgeHigh - wedgeLow) * 0.618;
+
+    return {
+      name: `${isRising ? 'Rising' : 'Falling'} Wedge`,
+      type: 'wedge',
+      direction,
+      breakoutLevel,
+      targetPrice,
+      stopLoss: direction === 'bullish' ? wedgeLow : wedgeHigh,
+      confidence: 70,
+      timestamp: candles[centerIndex].openTime,
+      expectedDuration: 8,
+      volumeConfirmation: this.checkVolumePattern(candles, centerIndex),
+      priceAction: {
+        entryZone: {
+          min: direction === 'bullish' ? breakoutLevel : breakoutLevel - (wedgeHigh - wedgeLow) * 0.1,
+          max: direction === 'bullish' ? breakoutLevel + (wedgeHigh - wedgeLow) * 0.1 : breakoutLevel,
+        },
+        consolidationRange,
+        breakoutStrength: consolidationRange * 100,
+      },
+    };
   }
 
   private detectChannelPattern(candles: Candle[], centerIndex: number): ScalpingPattern | null {
-    // Parallel channel patterns
-    // Implementation would find parallel trend lines
-    return null; // Placeholder
+    if (centerIndex < 12 || centerIndex > candles.length - 3) return null;
+
+    const window = candles.slice(centerIndex - 12, centerIndex);
+    const highs = window.map(c => c.high);
+    const lows = window.map(c => c.low);
+    const price = window[0].close;
+
+    const highSlope = this.linRegSlope(highs);
+    const lowSlope = this.linRegSlope(lows);
+    const normHigh = highSlope / price;
+    const normLow = lowSlope / price;
+
+    // Both slopes must go in the same direction (parallel channel)
+    if ((normHigh > 0) !== (normLow > 0)) return null;
+
+    // Slopes must be similar in magnitude (parallel) — ratio close to 1
+    const slopeRatio = Math.abs(highSlope) > 0 ? Math.abs(lowSlope / highSlope) : 0;
+    if (slopeRatio < 0.5 || slopeRatio > 2.0) return null;
+
+    // Must have a meaningful slope — not just a rectangle
+    const flatThreshold = 0.00003;
+    if (Math.abs(normHigh) < flatThreshold && Math.abs(normLow) < flatThreshold) return null;
+
+    const channelHigh = Math.max(...highs);
+    const channelLow = Math.min(...lows);
+    const consolidationRange = (channelHigh - channelLow) / price;
+    if (consolidationRange < 0.004) return null;
+
+    // Require bounces: at least 2 touches near each trendline
+    const highLine = this.linRegValues(highs);
+    const lowLine = this.linRegValues(lows);
+    const tolerance = consolidationRange * price * 0.15;
+    const topTouches = highs.filter((h, i) => Math.abs(h - highLine[i]) < tolerance).length;
+    const botTouches = lows.filter((l, i) => Math.abs(l - lowLine[i]) < tolerance).length;
+    if (topTouches < 3 || botTouches < 3) return null;
+
+    const isAscending = normHigh > 0;
+    // Ascending channel → continuation bullish, but watch for bearish breakdown
+    // Descending channel → continuation bearish, but watch for bullish breakout
+    const direction: 'bullish' | 'bearish' = isAscending ? 'bullish' : 'bearish';
+    const breakoutLevel = direction === 'bullish' ? channelHigh : channelLow;
+    const targetPrice = direction === 'bullish'
+      ? channelHigh + (channelHigh - channelLow) * 0.5
+      : channelLow - (channelHigh - channelLow) * 0.5;
+
+    return {
+      name: `${isAscending ? 'Ascending' : 'Descending'} Channel`,
+      type: 'channel',
+      direction,
+      breakoutLevel,
+      targetPrice,
+      stopLoss: direction === 'bullish' ? channelLow : channelHigh,
+      confidence: 65 + Math.round((slopeRatio > 1 ? 1 / slopeRatio : slopeRatio) * 10),
+      timestamp: candles[centerIndex].openTime,
+      expectedDuration: 10,
+      volumeConfirmation: this.checkVolumePattern(candles, centerIndex),
+      priceAction: {
+        entryZone: {
+          min: direction === 'bullish' ? breakoutLevel : breakoutLevel - (channelHigh - channelLow) * 0.1,
+          max: direction === 'bullish' ? breakoutLevel + (channelHigh - channelLow) * 0.1 : breakoutLevel,
+        },
+        consolidationRange,
+        breakoutStrength: Math.abs(normHigh) * 10000,
+      },
+    };
+  }
+
+  /** Simple linear regression slope for an array of values (indexed 0..n-1). */
+  private linRegSlope(values: number[]): number {
+    const n = values.length;
+    if (n < 2) return 0;
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    for (let i = 0; i < n; i++) {
+      sumX += i;
+      sumY += values[i];
+      sumXY += i * values[i];
+      sumX2 += i * i;
+    }
+    const denom = n * sumX2 - sumX * sumX;
+    return denom === 0 ? 0 : (n * sumXY - sumX * sumY) / denom;
+  }
+
+  /** Return the fitted y-values of a linear regression on values[]. */
+  private linRegValues(values: number[]): number[] {
+    const n = values.length;
+    const slope = this.linRegSlope(values);
+    const mean = values.reduce((a, b) => a + b, 0) / n;
+    const midX = (n - 1) / 2;
+    const intercept = mean - slope * midX;
+    return values.map((_, i) => intercept + slope * i);
   }
 
   // Helper methods for pattern analysis

@@ -47,6 +47,36 @@ export class DashboardService {
   private setupMiddleware(): void {
     this.app.use(express.json());
     this.app.use(cors());
+
+    // ── Standard API response envelope ──────────────────────────────────────
+    // Intercept res.json() for every /api/* route so ALL handlers produce:
+    //   { success: boolean, error?: string, data: any }
+    this.app.use('/api', (_req: express.Request, res: express.Response, next: express.NextFunction) => {
+      const originalJson = res.json.bind(res) as (body?: any) => express.Response;
+      (res as any).json = (body: any): express.Response => {
+        const status = res.statusCode;
+
+        if (status >= 400) {
+          return originalJson({
+            success: false,
+            error: (body && (body.error || body.message)) || 'Request failed',
+            data: null,
+          });
+        }
+
+        // Already properly enveloped — normalise (strip extra top-level keys)
+        if (body !== null && typeof body === 'object' && 'success' in body && 'data' in body) {
+          return originalJson({
+            success: body.success,
+            ...(body.error ? { error: body.error } : {}),
+            data: body.data,
+          });
+        }
+
+        return originalJson({ success: true, data: body ?? null });
+      };
+      next();
+    });
   }
 
   /**

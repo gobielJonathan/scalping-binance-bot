@@ -447,6 +447,28 @@ class WebSocketService {
   }
 
   /**
+   * Listen to a raw socket event (events not in the typed SocketEvents schema,
+   * e.g. 'dashboard-data', 'portfolio-update', 'new-signal', 'market-data').
+   * Returns an unsubscribe function.
+   */
+  listenRaw(event: string, callback: (data: any) => void): () => void {
+    if (this.socket) {
+      this.socket.on(event, callback)
+    }
+    // Mirror into eventCallbacks so the listener is restored on reconnect
+    const key = event as keyof SocketEvents
+    if (!this.eventCallbacks.has(key)) {
+      this.eventCallbacks.set(key, new Set())
+    }
+    this.eventCallbacks.get(key)!.add(callback as any)
+    return () => {
+      if (this.socket) this.socket.off(event, callback)
+      const cbs = this.eventCallbacks.get(key)
+      if (cbs) cbs.delete(callback as any)
+    }
+  }
+
+  /**
    * Emit a socket event to the server
    */
   emitToServer<E extends keyof SocketEvents>(

@@ -1,13 +1,8 @@
-import Binance, { OrderType, OrderSide, TimeInForce } from 'binance-api-node';
-import WebSocket from 'ws';
-import config from '../config/index';
-import { 
-  TradingPair, 
-  Candle, 
-  OrderRequest, 
-  MarketData
-} from '../types/index';
-import { logger } from './logger';
+import Binance, { OrderType, OrderSide, TimeInForce } from "binance-api-node";
+import WebSocket from "ws";
+import config from "../config/index";
+import { TradingPair, Candle, OrderRequest, MarketData } from "../types/index";
+import { logger } from "./logger";
 
 export interface BinanceAccountInfo {
   makerCommission: number;
@@ -186,15 +181,16 @@ export class BinanceService {
   private baseURL: string;
   private wsBaseURL: string;
   private listenKey: string | null = null;
+  private symbolInfoCache: Map<string, BinanceSymbolInfo> = new Map();
 
   constructor() {
     this.isTestnet = config.binance.testnet;
-    this.baseURL = this.isTestnet 
-      ? 'https://demo-api.binance.com'
-      : 'https://api.binance.com';
-    this.wsBaseURL = this.isTestnet 
-      ? 'wss://demo-stream.binance.com:9443/ws'
-      : 'wss://stream.binance.com:9443/ws';
+    this.baseURL = this.isTestnet
+      ? "https://demo-api.binance.com"
+      : "https://api.binance.com";
+    this.wsBaseURL = this.isTestnet
+      ? "wss://demo-stream.binance.com:9443/ws"
+      : "wss://stream.binance.com:9443/ws";
 
     this.initializeClient();
     this.setupRateLimiting();
@@ -206,21 +202,21 @@ export class BinanceService {
         apiKey: config.binance.apiKey,
         apiSecret: config.binance.secretKey,
         httpBase: this.baseURL,
-        wsBase: this.wsBaseURL.replace('/ws', ''),
-        getTime: () => Date.now()
+        wsBase: this.wsBaseURL.replace("/ws", ""),
+        getTime: () => Date.now(),
       });
 
-      logger.info('Binance client initialized', {
-        source: 'BinanceService',
-        context: { 
+      logger.info("Binance client initialized", {
+        source: "BinanceService",
+        context: {
           testnet: this.isTestnet,
-          baseURL: this.baseURL
-        }
+          baseURL: this.baseURL,
+        },
       });
     } catch (error) {
-      logger.error('Failed to initialize Binance client', { 
-        source: 'BinanceService', 
-        error: { stack: error instanceof Error ? error.stack : String(error) }
+      logger.error("Failed to initialize Binance client", {
+        source: "BinanceService",
+        error: { stack: error instanceof Error ? error.stack : String(error) },
       });
       throw error;
     }
@@ -235,31 +231,35 @@ export class BinanceService {
   private async checkRateLimit(): Promise<void> {
     if (this.requestCount >= this.maxRequestsPerWindow) {
       const waitTime = this.requestWindow;
-      logger.warn(`Rate limit reached, waiting ${waitTime}ms`, { 
-        source: 'BinanceService',
-        context: { waitTime }
+      logger.warn(`Rate limit reached, waiting ${waitTime}ms`, {
+        source: "BinanceService",
+        context: { waitTime },
       });
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
     this.requestCount++;
   }
 
   // Account Information Methods
   async getAccountInfo(): Promise<BinanceAccountInfo> {
+    if (!this.client) {
+      throw new Error("Binance client not initialized");
+    }
+
     await this.checkRateLimit();
     try {
-      logger.debug('Fetching account info', { 
-        source: 'BinanceService'
+      logger.debug("Fetching account info", {
+        source: "BinanceService",
       });
       const accountInfo = await this.client.accountInfo();
-      logger.info('Account info retrieved successfully', { 
-        source: 'BinanceService'
+      logger.info("Account info retrieved successfully", {
+        source: "BinanceService",
       });
       return accountInfo;
     } catch (error) {
-      logger.error('Failed to fetch account info', { 
-        source: 'BinanceService',
-        error: { stack: error instanceof Error ? error.stack : String(error) }
+      logger.error("Failed to fetch account info", {
+        source: "BinanceService",
+        error: { stack: error instanceof Error ? error.stack : String(error) },
       });
       throw this.handleBinanceError(error);
     }
@@ -268,79 +268,169 @@ export class BinanceService {
   async getBalance(asset?: string): Promise<BinanceBalance[]> {
     const accountInfo = await this.getAccountInfo();
     const balances = accountInfo.balances
-      .filter(balance => asset ? balance.asset === asset : parseFloat(balance.free) > 0 || parseFloat(balance.locked) > 0)
-      .map(balance => ({
+      .filter((balance) =>
+        asset
+          ? balance.asset === asset
+          : parseFloat(balance.free) > 0 || parseFloat(balance.locked) > 0,
+      )
+      .map((balance) => ({
         asset: balance.asset,
         free: parseFloat(balance.free),
         locked: parseFloat(balance.locked),
-        total: parseFloat(balance.free) + parseFloat(balance.locked)
+        total: parseFloat(balance.free) + parseFloat(balance.locked),
       }));
 
-    logger.debug('Balance retrieved', { 
-      source: 'BinanceService',
-      context: { asset, count: balances.length }
+    logger.debug("Balance retrieved", {
+      source: "BinanceService",
+      context: { asset, count: balances.length },
     });
     return balances;
   }
 
   // Order Management Methods
   async getOpenOrders(symbol?: string): Promise<BinanceOrder[]> {
+    if (!this.client) {
+      throw new Error("Binance client not initialized");
+    }
+
     await this.checkRateLimit();
     try {
-      logger.debug('Fetching open orders', { 
-        source: 'BinanceService',
-        context: { symbol }
+      logger.debug("Fetching open orders", {
+        source: "BinanceService",
+        context: { symbol },
       });
       const orders = await this.client.openOrders({ symbol });
-      logger.info('Open orders retrieved', { 
-        source: 'BinanceService',
-        context: { count: orders.length, symbol }
+      logger.info("Open orders retrieved", {
+        source: "BinanceService",
+        context: { count: orders.length, symbol },
       });
       return orders;
     } catch (error) {
-      logger.error('Failed to fetch open orders', { 
-        source: 'BinanceService',
+      logger.error("Failed to fetch open orders", {
+        source: "BinanceService",
         error: { stack: error instanceof Error ? error.stack : String(error) },
-        context: { symbol }
+        context: { symbol },
       });
       throw this.handleBinanceError(error);
     }
   }
 
+  /**
+   * Return decimal precision implied by a step/tick size string e.g. "0.00100" → 5
+   */
+  private stepPrecision(stepStr: string): number {
+    const match = stepStr.replace(/0+$/, '').match(/\.(.*)$/);
+    return match ? match[1].length : 0;
+  }
+
+  /**
+   * Truncate (floor) a value to the exchange-defined step size and return as
+   * a fixed-decimal string so Binance never sees floating-point noise.
+   */
+  private formatToStep(value: number, stepStr: string): string {
+    const step = parseFloat(stepStr);
+    if (!step) return value.toString();
+    const precision = this.stepPrecision(stepStr);
+    const floored = Math.floor(value / step) * step;
+    return floored.toFixed(precision);
+  }
+
+  /**
+   * Fetch symbol info with a per-session in-memory cache to avoid hammering
+   * the exchange info endpoint on every order.
+   */
+  private async getCachedSymbolInfo(symbol: string): Promise<BinanceSymbolInfo | null> {
+    if (this.symbolInfoCache.has(symbol)) {
+      return this.symbolInfoCache.get(symbol)!;
+    }
+    try {
+      const info = await this.getSymbolInfo(symbol) as BinanceSymbolInfo;
+      this.symbolInfoCache.set(symbol, info);
+      return info;
+    } catch {
+      return null;
+    }
+  }
+
   async placeOrder(orderRequest: OrderRequest): Promise<any> {
+    if (!this.client) {
+      throw new Error("Binance client not initialized");
+    }
+
     await this.checkRateLimit();
-    
-    if (config.trading.mode === 'paper') {
+
+    if (config.trading.mode === "paper") {
       return this.simulateOrder(orderRequest);
     }
 
     try {
-      logger.info('Placing order', { 
-        source: 'BinanceService',
-        context: orderRequest
+      logger.info("Placing order", {
+        source: "BinanceService",
+        context: orderRequest,
       });
-      
+
+      // ── Precision rounding ──────────────────────────────────────────────
+      // Binance error -1111 is thrown when quantity/price exceed the allowed
+      // decimal precision defined by the LOT_SIZE and PRICE_FILTER for the
+      // symbol.  Apply floor-rounding to both before building the request.
+      let quantityStr = orderRequest.quantity.toString();
+      let priceStr = orderRequest.price?.toString();
+      let stopPriceStr = orderRequest.stopPrice?.toString();
+
+      const symbolInfo = await this.getCachedSymbolInfo(orderRequest.symbol);
+      if (symbolInfo) {
+        const lotSize = symbolInfo.filters.find((f) => f.filterType === 'LOT_SIZE');
+        const priceFilter = symbolInfo.filters.find((f) => f.filterType === 'PRICE_FILTER');
+
+        if (lotSize?.stepSize) {
+          quantityStr = this.formatToStep(orderRequest.quantity, lotSize.stepSize);
+        }
+        if (priceFilter?.tickSize) {
+          if (orderRequest.price) {
+            priceStr = this.formatToStep(orderRequest.price, priceFilter.tickSize);
+          }
+          if (orderRequest.stopPrice) {
+            stopPriceStr = this.formatToStep(orderRequest.stopPrice, priceFilter.tickSize);
+          }
+        }
+
+        logger.debug('Rounded order values', {
+          source: 'BinanceService',
+          context: {
+            rawQty: orderRequest.quantity,
+            roundedQty: quantityStr,
+            stepSize: lotSize?.stepSize,
+          },
+        });
+      }
+      // ───────────────────────────────────────────────────────────────────
+
       const binanceOrder = {
         symbol: orderRequest.symbol,
         side: orderRequest.side as OrderSide,
         type: orderRequest.type as OrderType,
-        quantity: orderRequest.quantity.toString(),
-        ...(orderRequest.price && { price: orderRequest.price.toString() }),
-        ...(orderRequest.stopPrice && { stopPrice: orderRequest.stopPrice.toString() }),
-        ...(orderRequest.timeInForce && { timeInForce: orderRequest.timeInForce as TimeInForce })
+        quantity: quantityStr,
+        ...(priceStr && { price: priceStr }),
+        ...(stopPriceStr && { stopPrice: stopPriceStr }),
+        ...(orderRequest.timeInForce && {
+          timeInForce: orderRequest.timeInForce as TimeInForce,
+        }),
       };
 
       const result = await this.client.order(binanceOrder);
-      logger.info('Order placed successfully', { 
-        source: 'BinanceService',
-        context: { orderId: result.orderId.toString(), symbol: orderRequest.symbol }
+      logger.info("Order placed successfully", {
+        source: "BinanceService",
+        context: {
+          orderId: result.orderId.toString(),
+          symbol: orderRequest.symbol,
+        },
       });
       return result;
     } catch (error) {
-      logger.error('Failed to place order', { 
-        source: 'BinanceService',
+      logger.error("Failed to place order", {
+        source: "BinanceService",
         error: { stack: error instanceof Error ? error.stack : String(error) },
-        context: { orderRequest }
+        context: { orderRequest },
       });
       throw this.handleBinanceError(error);
     }
@@ -349,73 +439,81 @@ export class BinanceService {
   async cancelOrder(symbol: string, orderId: number): Promise<any> {
     await this.checkRateLimit();
 
-    if (config.trading.mode === 'paper') {
-      logger.info('Simulating order cancellation', { 
-        source: 'BinanceService',
-        context: { symbol, orderId: orderId.toString() }
+    if (config.trading.mode === "paper") {
+      logger.info("Simulating order cancellation", {
+        source: "BinanceService",
+        context: { symbol, orderId: orderId.toString() },
       });
-      return { symbol, orderId, status: 'CANCELED' };
+      return { symbol, orderId, status: "CANCELED" };
     }
 
     try {
-      logger.info('Canceling order', { 
-        source: 'BinanceService',
-        context: { symbol, orderId: orderId.toString() }
+      logger.info("Canceling order", {
+        source: "BinanceService",
+        context: { symbol, orderId: orderId.toString() },
       });
       const result = await this.client.cancelOrder({ symbol, orderId });
-      logger.info('Order canceled successfully', { 
-        source: 'BinanceService',
-        context: { orderId: orderId.toString(), symbol }
+      logger.info("Order canceled successfully", {
+        source: "BinanceService",
+        context: { orderId: orderId.toString(), symbol },
       });
       return result;
     } catch (error) {
-      logger.error('Failed to cancel order', { 
-        source: 'BinanceService',
+      logger.error("Failed to cancel order", {
+        source: "BinanceService",
         error: { stack: error instanceof Error ? error.stack : String(error) },
-        context: { symbol, orderId: orderId.toString() }
+        context: { symbol, orderId: orderId.toString() },
       });
       throw this.handleBinanceError(error);
     }
   }
 
   // Market Data Methods
-  async getSymbolInfo(symbol?: string): Promise<BinanceSymbolInfo | BinanceSymbolInfo[]> {
+  async getSymbolInfo(
+    symbol?: string,
+  ): Promise<BinanceSymbolInfo | BinanceSymbolInfo[]> {
     await this.checkRateLimit();
     try {
-      logger.debug('Fetching exchange info', { 
-        source: 'BinanceService',
-        context: { symbol }
+      logger.debug("Fetching exchange info", {
+        source: "BinanceService",
+        context: { symbol },
       });
       const exchangeInfo = await this.client.exchangeInfo();
-      
+
       if (symbol) {
-        const symbolInfo = exchangeInfo.symbols.find((s: BinanceSymbolInfo) => s.symbol === symbol);
+        const symbolInfo = exchangeInfo.symbols.find(
+          (s: BinanceSymbolInfo) => s.symbol === symbol,
+        );
         if (!symbolInfo) {
           throw new Error(`Symbol ${symbol} not found`);
         }
         return symbolInfo;
       }
-      
+
       return exchangeInfo.symbols;
     } catch (error) {
-      logger.error('Failed to fetch symbol info', { 
-        source: 'BinanceService',
+      logger.error("Failed to fetch symbol info", {
+        source: "BinanceService",
         error: { stack: error instanceof Error ? error.stack : String(error) },
-        context: { symbol }
+        context: { symbol },
       });
       throw this.handleBinanceError(error);
     }
   }
 
-  async getKlines(symbol: string, interval: string, limit: number = 500): Promise<Candle[]> {
+  async getKlines(
+    symbol: string,
+    interval: string,
+    limit: number = 500,
+  ): Promise<Candle[]> {
     await this.checkRateLimit();
     try {
-      logger.debug('Fetching klines', { 
-        source: 'BinanceService',
-        context: { symbol, interval, limit }
+      logger.debug("Fetching klines", {
+        source: "BinanceService",
+        context: { symbol, interval, limit },
       });
       const klines = await this.client.candles({ symbol, interval, limit });
-      
+
       const candles: Candle[] = klines.map((kline: any) => ({
         openTime: kline.openTime,
         open: parseFloat(kline.open),
@@ -427,32 +525,36 @@ export class BinanceService {
         quoteVolume: parseFloat(kline.quoteAssetVolume),
         trades: kline.trades,
         baseAssetVolume: parseFloat(kline.baseAssetVolume),
-        quoteAssetVolume: parseFloat(kline.quoteAssetVolume)
+        quoteAssetVolume: parseFloat(kline.quoteAssetVolume),
       }));
 
-      logger.info('Klines retrieved', { 
-        source: 'BinanceService',
-        context: { symbol, interval, count: candles.length }
+      logger.info("Klines retrieved", {
+        source: "BinanceService",
+        context: { symbol, interval, count: candles.length },
       });
       return candles;
     } catch (error) {
-      logger.error('Failed to fetch klines', { 
-        source: 'BinanceService',
+      logger.error("Failed to fetch klines", {
+        source: "BinanceService",
         error: { stack: error instanceof Error ? error.stack : String(error) },
-        context: { symbol, interval }
+        context: { symbol, interval },
       });
       throw this.handleBinanceError(error);
     }
   }
 
   async getPrice(symbol?: string): Promise<MarketData | MarketData[]> {
+    if(!this.client) {
+      throw new Error("Binance client not initialized");
+    }
+
     await this.checkRateLimit();
     try {
-      logger.debug('Fetching price data', { 
-        source: 'BinanceService',
-        context: { symbol }
+      logger.debug("Fetching price data", {
+        source: "BinanceService",
+        context: { symbol },
       });
-      const ticker24hr = symbol 
+      const ticker24hr = symbol
         ? await this.client.dailyStats({ symbol })
         : await this.client.dailyStats();
 
@@ -462,10 +564,10 @@ export class BinanceService {
         return this.formatMarketData(ticker24hr);
       }
     } catch (error) {
-      logger.error('Failed to fetch price data', { 
-        source: 'BinanceService',
+      logger.error("Failed to fetch price data", {
+        source: "BinanceService",
         error: { stack: error instanceof Error ? error.stack : String(error) },
-        context: { symbol }
+        context: { symbol },
       });
       throw this.handleBinanceError(error);
     }
@@ -481,157 +583,177 @@ export class BinanceService {
       bid: parseFloat(ticker.bidPrice),
       ask: parseFloat(ticker.askPrice),
       spread: parseFloat(ticker.askPrice) - parseFloat(ticker.bidPrice),
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
   }
 
   // WebSocket Methods
-  async startPriceStream(symbols: string[], callback: (data: MarketData) => void): Promise<void> {
-    const streamName = symbols.map(s => `${s.toLowerCase()}@ticker`).join('/');
+  async startPriceStream(
+    symbols: string[],
+    callback: (data: MarketData) => void,
+  ): Promise<void> {
+    const streamName = symbols
+      .map((s) => `${s.toLowerCase()}@ticker`)
+      .join("/");
     const wsUrl = `${this.wsBaseURL}/${streamName}`;
-    
+
     try {
-      await this.createWebSocketConnection(wsUrl, streamName, (message: any) => {
-        // Single-stream format: the payload is the ticker object directly (has field 's')
-        // Combined-stream format: payload is wrapped in { stream, data } (has field 'data.s')
-        const tickerData = message.data ?? message;
-        if (tickerData && tickerData.s) {
-          const marketData = this.formatTickerToMarketData(tickerData);
-          callback(marketData);
-        }
-      });
-      
-      logger.info('Price stream started', { 
-        source: 'BinanceService',
-        context: { symbols, streamName }
+      await this.createWebSocketConnection(
+        wsUrl,
+        streamName,
+        (message: any) => {
+          // Single-stream format: the payload is the ticker object directly (has field 's')
+          // Combined-stream format: payload is wrapped in { stream, data } (has field 'data.s')
+          const tickerData = message.data ?? message;
+          if (tickerData && tickerData.s) {
+            const marketData = this.formatTickerToMarketData(tickerData);
+            callback(marketData);
+          }
+        },
+      );
+
+      logger.info("Price stream started", {
+        source: "BinanceService",
+        context: { symbols, streamName },
       });
     } catch (error) {
-      logger.error('Failed to start price stream', { 
-        source: 'BinanceService',
+      logger.error("Failed to start price stream", {
+        source: "BinanceService",
         error: { stack: error instanceof Error ? error.stack : String(error) },
-        context: { symbols }
+        context: { symbols },
       });
       throw error;
     }
   }
 
   async startKlineStream(
-    symbol: string, 
-    interval: string, 
-    callback: (data: Candle) => void
+    symbol: string,
+    interval: string,
+    callback: (data: Candle) => void,
   ): Promise<void> {
     const streamName = `${symbol.toLowerCase()}@kline_${interval}`;
     const wsUrl = `${this.wsBaseURL}/${streamName}`;
-    
+
     try {
-      await this.createWebSocketConnection(wsUrl, streamName, (message: KlineData) => {
-        if (message.k && message.k.x) { // Only process closed candles
-          const candle: Candle = {
-            openTime: message.k.t,
-            open: parseFloat(message.k.o),
-            high: parseFloat(message.k.h),
-            low: parseFloat(message.k.l),
-            close: parseFloat(message.k.c),
-            volume: parseFloat(message.k.v),
-            closeTime: message.k.T,
-            quoteVolume: parseFloat(message.k.q),
-            trades: message.k.n,
-            baseAssetVolume: parseFloat(message.k.V),
-            quoteAssetVolume: parseFloat(message.k.Q)
-          };
-          callback(candle);
-        }
-      });
-      
-      logger.info('Kline stream started', { 
-        source: 'BinanceService',
-        context: { symbol, interval, streamName }
+      await this.createWebSocketConnection(
+        wsUrl,
+        streamName,
+        (message: KlineData) => {
+          if (message.k && message.k.x) {
+            // Only process closed candles
+            const candle: Candle = {
+              openTime: message.k.t,
+              open: parseFloat(message.k.o),
+              high: parseFloat(message.k.h),
+              low: parseFloat(message.k.l),
+              close: parseFloat(message.k.c),
+              volume: parseFloat(message.k.v),
+              closeTime: message.k.T,
+              quoteVolume: parseFloat(message.k.q),
+              trades: message.k.n,
+              baseAssetVolume: parseFloat(message.k.V),
+              quoteAssetVolume: parseFloat(message.k.Q),
+            };
+            callback(candle);
+          }
+        },
+      );
+
+      logger.info("Kline stream started", {
+        source: "BinanceService",
+        context: { symbol, interval, streamName },
       });
     } catch (error) {
-      logger.error('Failed to start kline stream', { 
-        source: 'BinanceService',
+      logger.error("Failed to start kline stream", {
+        source: "BinanceService",
         error: { stack: error instanceof Error ? error.stack : String(error) },
-        context: { symbol, interval }
+        context: { symbol, interval },
       });
       throw error;
     }
   }
 
-  async startUserDataStream(callback: (data: UserDataStreamData) => void): Promise<void> {
+  async startUserDataStream(
+    callback: (data: UserDataStreamData) => void,
+  ): Promise<void> {
     try {
       // Get listen key for user data stream
       if (!this.listenKey) {
         const response = await this.client.ws.user(callback);
-        logger.info('User data stream started', { 
-          source: 'BinanceService'
+        logger.info("User data stream started", {
+          source: "BinanceService",
         });
         return;
       }
     } catch (error) {
-      logger.error('Failed to start user data stream', { 
-        source: 'BinanceService',
-        error: { stack: error instanceof Error ? error.stack : String(error) }
+      logger.error("Failed to start user data stream", {
+        source: "BinanceService",
+        error: { stack: error instanceof Error ? error.stack : String(error) },
       });
       throw error;
     }
   }
 
   private async createWebSocketConnection(
-    url: string, 
-    streamName: string, 
-    messageHandler: (message: any) => void
+    url: string,
+    streamName: string,
+    messageHandler: (message: any) => void,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        
         const ws = new WebSocket(url);
         this.wsConnections.set(streamName, ws);
         this.wsReconnectAttempts.set(streamName, 0);
 
-        ws.on('open', () => {
-          logger.info('WebSocket connected', { 
-            source: 'BinanceService',
-            context: { streamName }
+        ws.on("open", () => {
+          logger.info("WebSocket connected", {
+            source: "BinanceService",
+            context: { streamName },
           });
           this.wsReconnectAttempts.set(streamName, 0);
           resolve();
         });
 
-        ws.on('message', (data: string) => {
+        ws.on("message", (data: string) => {
           try {
             const message = JSON.parse(data);
             messageHandler(message);
           } catch (error) {
-            logger.error('Failed to parse WebSocket message', { 
-              source: 'BinanceService',
-              error: { stack: error instanceof Error ? error.stack : String(error) },
-              context: { data }
+            logger.error("Failed to parse WebSocket message", {
+              source: "BinanceService",
+              error: {
+                stack: error instanceof Error ? error.stack : String(error),
+              },
+              context: { data },
             });
           }
         });
 
-        ws.on('error', (error) => {
-          logger.error('WebSocket error', { 
-            source: 'BinanceService',
-            error: { stack: error instanceof Error ? error.stack : String(error) },
-            context: { streamName }
+        ws.on("error", (error) => {
+          logger.error("WebSocket error", {
+            source: "BinanceService",
+            error: {
+              stack: error instanceof Error ? error.stack : String(error),
+            },
+            context: { streamName },
           });
           reject(error);
         });
 
-        ws.on('close', (code, reason) => {
-          logger.warn('WebSocket closed', { 
-            source: 'BinanceService',
-            context: { code, reason: reason.toString(), streamName }
+        ws.on("close", (code, reason) => {
+          logger.warn("WebSocket closed", {
+            source: "BinanceService",
+            context: { code, reason: reason.toString(), streamName },
           });
           this.handleWebSocketReconnection(url, streamName, messageHandler);
         });
-
       } catch (error) {
-        logger.error('Failed to create WebSocket connection', { 
-          source: 'BinanceService',
-          error: { stack: error instanceof Error ? error.stack : String(error) },
-          context: { streamName }
+        logger.error("Failed to create WebSocket connection", {
+          source: "BinanceService",
+          error: {
+            stack: error instanceof Error ? error.stack : String(error),
+          },
+          context: { streamName },
         });
         reject(error);
       }
@@ -639,39 +761,41 @@ export class BinanceService {
   }
 
   private async handleWebSocketReconnection(
-    url: string, 
-    streamName: string, 
-    messageHandler: (message: any) => void
+    url: string,
+    streamName: string,
+    messageHandler: (message: any) => void,
   ): Promise<void> {
     const attempts = this.wsReconnectAttempts.get(streamName) || 0;
-    
+
     if (attempts >= this.maxReconnectAttempts) {
-      logger.error('Max reconnection attempts reached', { 
-        source: 'BinanceService',
-        context: { streamName, attempts }
+      logger.error("Max reconnection attempts reached", {
+        source: "BinanceService",
+        context: { streamName, attempts },
       });
       return;
     }
 
     this.wsReconnectAttempts.set(streamName, attempts + 1);
-    
-    logger.info('Attempting WebSocket reconnection', { 
-      source: 'BinanceService',
+
+    logger.info("Attempting WebSocket reconnection", {
+      source: "BinanceService",
       context: {
-        streamName, 
+        streamName,
         attempt: attempts + 1,
-        delay: this.reconnectDelay 
-      }
+        delay: this.reconnectDelay,
+      },
     });
 
     setTimeout(async () => {
       try {
         await this.createWebSocketConnection(url, streamName, messageHandler);
       } catch (error) {
-        logger.error('WebSocket reconnection failed', { 
-          source: 'BinanceService',
-          error: { stack: error instanceof Error ? error.stack : String(error) },
-          context: { streamName }
+        logger.error("WebSocket reconnection failed", {
+          source: "BinanceService",
+          error: {
+            stack: error instanceof Error ? error.stack : String(error),
+          },
+          context: { streamName },
         });
       }
     }, this.reconnectDelay);
@@ -683,18 +807,18 @@ export class BinanceService {
       if (ws) {
         ws.close();
         this.wsConnections.delete(streamName);
-        logger.info('WebSocket stream stopped', { 
-          source: 'BinanceService',
-          context: { streamName }
+        logger.info("WebSocket stream stopped", {
+          source: "BinanceService",
+          context: { streamName },
         });
       }
     } else {
       // Close all connections
       this.wsConnections.forEach((ws, name) => {
         ws.close();
-        logger.info('WebSocket stream stopped', { 
-          source: 'BinanceService',
-          context: { streamName: name }
+        logger.info("WebSocket stream stopped", {
+          source: "BinanceService",
+          context: { streamName: name },
         });
       });
       this.wsConnections.clear();
@@ -707,56 +831,67 @@ export class BinanceService {
       price: parseFloat(ticker.c),
       volume24h: parseFloat(ticker.v),
       priceChange24h: parseFloat(ticker.c) - parseFloat(ticker.o),
-      priceChangePercent24h: ((parseFloat(ticker.c) - parseFloat(ticker.o)) / parseFloat(ticker.o)) * 100,
+      priceChangePercent24h:
+        ((parseFloat(ticker.c) - parseFloat(ticker.o)) / parseFloat(ticker.o)) *
+        100,
       bid: 0, // Not available in ticker stream
       ask: 0, // Not available in ticker stream
       spread: 0,
-      timestamp: ticker.E
+      timestamp: ticker.E,
     };
   }
 
   // Paper Trading Simulation
   private simulateOrder(orderRequest: OrderRequest): any {
     const orderId = Date.now();
-    logger.info('Simulating order (paper trading)', { 
-      source: 'BinanceService',
-      context: { ...orderRequest, orderId: orderId.toString() }
+    logger.info("Simulating order (paper trading)", {
+      source: "BinanceService",
+      context: { ...orderRequest, orderId: orderId.toString() },
     });
-    
+
     return {
       symbol: orderRequest.symbol,
       orderId,
       clientOrderId: `paper_${orderId}`,
       transactTime: Date.now(),
-      price: orderRequest.price?.toString() || '0',
+      price: orderRequest.price?.toString() || "0",
       origQty: orderRequest.quantity.toString(),
       executedQty: orderRequest.quantity.toString(),
-      status: 'FILLED',
-      timeInForce: orderRequest.timeInForce || 'GTC',
+      status: "FILLED",
+      timeInForce: orderRequest.timeInForce || "GTC",
       type: orderRequest.type,
       side: orderRequest.side,
-      fills: [{
-        price: orderRequest.price?.toString() || '0',
-        qty: orderRequest.quantity.toString(),
-        commission: '0',
-        commissionAsset: orderRequest.symbol.replace(/USDT$/, '').replace(/BTC$/, '').replace(/ETH$/, '')
-      }]
+      fills: [
+        {
+          price: orderRequest.price?.toString() || "0",
+          qty: orderRequest.quantity.toString(),
+          commission: "0",
+          commissionAsset: orderRequest.symbol
+            .replace(/USDT$/, "")
+            .replace(/BTC$/, "")
+            .replace(/ETH$/, ""),
+        },
+      ],
     };
   }
 
   // Utility Methods
   convertToTradingPair(symbolInfo: BinanceSymbolInfo): TradingPair {
-    const lotSizeFilter = symbolInfo.filters.find(f => f.filterType === 'LOT_SIZE');
-    const priceFilter = symbolInfo.filters.find(f => f.filterType === 'PRICE_FILTER');
+    const lotSizeFilter = symbolInfo.filters.find(
+      (f) => f.filterType === "LOT_SIZE",
+    );
+    const priceFilter = symbolInfo.filters.find(
+      (f) => f.filterType === "PRICE_FILTER",
+    );
 
     return {
       symbol: symbolInfo.symbol,
       baseAsset: symbolInfo.baseAsset,
       quoteAsset: symbolInfo.quoteAsset,
-      minQty: parseFloat(lotSizeFilter?.minQty || '0'),
-      maxQty: parseFloat(lotSizeFilter?.maxQty || '0'),
-      stepSize: parseFloat(lotSizeFilter?.stepSize || '0'),
-      tickSize: parseFloat(priceFilter?.tickSize || '0')
+      minQty: parseFloat(lotSizeFilter?.minQty || "0"),
+      maxQty: parseFloat(lotSizeFilter?.maxQty || "0"),
+      stepSize: parseFloat(lotSizeFilter?.stepSize || "0"),
+      tickSize: parseFloat(priceFilter?.tickSize || "0"),
     };
   }
 
@@ -764,17 +899,19 @@ export class BinanceService {
     if (error.code) {
       switch (error.code) {
         case -1021:
-          return new Error('Timestamp for this request is outside the recvWindow');
+          return new Error(
+            "Timestamp for this request is outside the recvWindow",
+          );
         case -2010:
-          return new Error('NEW_ORDER_REJECTED - Order rejected');
+          return new Error("NEW_ORDER_REJECTED - Order rejected");
         case -2011:
-          return new Error('CANCEL_REJECTED - Order cancellation rejected');
+          return new Error("CANCEL_REJECTED - Order cancellation rejected");
         case -1003:
-          return new Error('Too many requests - Rate limit exceeded');
+          return new Error("Too many requests - Rate limit exceeded");
         case -1002:
-          return new Error('UNAUTHORIZED - Invalid API key');
+          return new Error("UNAUTHORIZED - Invalid API key");
         case -1022:
-          return new Error('Invalid signature');
+          return new Error("Invalid signature");
         default:
           return new Error(`Binance API Error ${error.code}: ${error.msg}`);
       }
@@ -786,14 +923,14 @@ export class BinanceService {
   async testConnection(): Promise<boolean> {
     try {
       await this.client.ping();
-      logger.info('Binance connection test successful', { 
-        source: 'BinanceService'
+      logger.info("Binance connection test successful", {
+        source: "BinanceService",
       });
       return true;
     } catch (error) {
-      logger.error('Binance connection test failed', { 
-        source: 'BinanceService',
-        error: { stack: error instanceof Error ? error.stack : String(error) }
+      logger.error("Binance connection test failed", {
+        source: "BinanceService",
+        error: { stack: error instanceof Error ? error.stack : String(error) },
       });
       return false;
     }
@@ -804,9 +941,9 @@ export class BinanceService {
       const response = await this.client.time();
       return response.serverTime;
     } catch (error) {
-      logger.error('Failed to get server time', { 
-        source: 'BinanceService',
-        error: { stack: error instanceof Error ? error.stack : String(error) }
+      logger.error("Failed to get server time", {
+        source: "BinanceService",
+        error: { stack: error instanceof Error ? error.stack : String(error) },
       });
       throw this.handleBinanceError(error);
     }
@@ -814,26 +951,28 @@ export class BinanceService {
 
   // Cleanup
   async disconnect(): Promise<void> {
-    logger.info('Disconnecting Binance service', { 
-      source: 'BinanceService'
+    logger.info("Disconnecting Binance service", {
+      source: "BinanceService",
     });
     this.stopWebSocketStream();
-    
+
     // Close user data stream if exists
     if (this.listenKey) {
       try {
         // Implementation would depend on binance-api-node library methods
         // await this.client.ws.close();
       } catch (error) {
-        logger.error('Error closing user data stream', { 
-          source: 'BinanceService',
-          error: { stack: error instanceof Error ? error.stack : String(error) }
+        logger.error("Error closing user data stream", {
+          source: "BinanceService",
+          error: {
+            stack: error instanceof Error ? error.stack : String(error),
+          },
         });
       }
     }
 
-    logger.info('Binance service disconnected', { 
-      source: 'BinanceService'
+    logger.info("Binance service disconnected", {
+      source: "BinanceService",
     });
   }
 }

@@ -1,5 +1,7 @@
 // Core data types and interfaces for the trading bot
 
+import { OrderType } from "binance-api-node";
+
 export interface TradingPair {
   symbol: string;
   baseAsset: string;
@@ -174,7 +176,7 @@ export interface TradePosition {
 export interface OrderRequest {
   symbol: string;
   side: 'BUY' | 'SELL';
-  type: 'MARKET' | 'LIMIT' | 'STOP_LOSS' | 'TAKE_PROFIT';
+  type: OrderType;
   quantity: number;
   price?: number;
   stopPrice?: number;
@@ -541,7 +543,7 @@ export interface OrderExecutionMetrics {
   fees: number;
   marketImpact: number;
   timestamp: number;
-  orderType: 'MARKET' | 'LIMIT' | 'STOP_LOSS' | 'TAKE_PROFIT';
+  orderType: OrderType;
   size: number;
 }
 
@@ -567,7 +569,7 @@ export interface SmartRoutingDecision {
   symbol: string;
   orderSize: number;
   recommendedExchange: string;
-  recommendedOrderType: 'MARKET' | 'LIMIT';
+  recommendedOrderType: OrderType;
   estimatedSlippage: number;
   estimatedFees: number;
   estimatedExecutionTime: number;

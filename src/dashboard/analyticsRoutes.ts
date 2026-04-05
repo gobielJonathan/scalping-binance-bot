@@ -1,19 +1,28 @@
-import * as express from 'express';
+import {Router} from 'express';
 import { TradeAnalyticsService } from '../services/tradeAnalyticsService';
 import { DatabaseService } from '../database/databaseService';
 import { logger } from '../services/logger';
+import BinanceService from '../services/binanceService';
+import config from '../config';
 
-const router = express.Router();
+const router = Router();
 const analyticsService = new TradeAnalyticsService();
 const databaseService = new DatabaseService();
+const binanceService = new BinanceService();
+
+// Initialize once and reuse the same promise so concurrent requests never
+// race through initializeDatabase() at the same time.
+const initPromise: Promise<void> = (async () => {
+  await databaseService.initializeDatabase();
+  await analyticsService.initialize();
+})();
 
 /**
  * Initialize analytics service
  */
 router.use(async (req, res, next) => {
   try {
-    await analyticsService.initialize();
-    await databaseService.initializeDatabase();
+    await initPromise;
     next();
   } catch (error) {
     res.status(500).json({ 
@@ -516,6 +525,56 @@ router.get('/stats', async (req, res) => {
     const result = stats[0];
     const todayResult = todayStats[0];
     const weekResult = thisWeekStats[0];
+
+    // Fetch latest balance snapshot for this mode
+    let latestBalance = await databaseService.queryGet(`
+      SELECT totalBalance, availableBalance
+      FROM portfolio_history
+      WHERE mode = ?
+      ORDER BY timestamp DESC
+      LIMIT 1
+    `, [mode]) as { totalBalance: number; availableBalance: number } | undefined;
+
+    // If no balance in DB, fetch live USDT balance from Binance and persist it
+    if (!latestBalance?.totalBalance && config.trading.mode !== 'paper') {
+      try {
+        const usdtBalances = await binanceService.getBalance('USDT');
+        const usdt = usdtBalances[0];
+        if (usdt) {
+          const totalBalance = usdt.total;
+          const availableBalance = usdt.free;
+          const now = Date.now();
+          const today = new Date().toISOString().split('T')[0];
+
+          await databaseService.updatePortfolio({
+            timestamp: now,
+            totalBalance,
+            availableBalance,
+            lockedBalance: usdt.locked,
+            totalPnl: 0,
+            totalPnlPercent: 0,
+            dailyPnl: 0,
+            dailyPnlPercent: 0,
+            openPositionsCount: 0,
+            riskExposure: 0,
+            maxDrawdown: 0,
+            mode: mode as 'paper' | 'live',
+            date: today,
+          });
+
+          latestBalance = { totalBalance, availableBalance };
+          logger.info('Seeded portfolio_history from Binance USDT balance', {
+            source: 'analyticsRoutes',
+            context: { totalBalance, mode },
+          });
+        }
+      } catch (binanceErr) {
+        logger.warn('Could not fetch Binance balance as fallback', {
+          source: 'analyticsRoutes',
+          error: { stack: binanceErr instanceof Error ? binanceErr.stack : String(binanceErr) },
+        });
+      }
+    }
     
     // Calculate derived metrics
     const winRate = result.closedTrades > 0 
@@ -527,6 +586,10 @@ router.get('/stats', async (req, res) => {
       : 0;
 
     res.json({
+      balance: {
+        totalBalance: latestBalance?.totalBalance ?? null,
+        availableBalance: latestBalance?.availableBalance ?? null,
+      },
       total: {
         trades: result.totalTrades,
         closedTrades: result.closedTrades,

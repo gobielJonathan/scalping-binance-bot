@@ -64,9 +64,13 @@ interface MarketSymbol {
 interface Signal {
   id?: string | number
   symbol: string
-  direction: 'BUY' | 'SELL'
-  strength?: string | number
+  type: 'BUY' | 'SELL' | 'HOLD' | string
+  strength?: number
+  confidence?: number
+  reason?: string
   timestamp: number | string
+  // legacy fields kept for backwards-compat
+  direction?: 'BUY' | 'SELL' | string
   price?: number
   indicator?: string
 }
@@ -97,8 +101,14 @@ const pnlIntervalOptions = [
 // ─── Data Loaders ────────────────────────────────────────────────────────────
 
 const loadStats = async () => {
-  const res = await apiService.getAnalyticsStats({ mode: 'paper' })
-  if (res.success && res.data) analyticsStats.value = res.data as AnalyticsStats
+  const res = await apiService.getAnalyticsStats({ mode: 'live' })
+  if (res.success && res.data) {
+    const data = res.data as any
+    analyticsStats.value = data as AnalyticsStats
+    if (data.balance?.totalBalance != null) {
+      totalBalance.value = data.balance.totalBalance
+    }
+  }
 }
 
 // Portfolio and market data are pushed by the server via websocket (no dedicated REST
@@ -106,7 +116,7 @@ const loadStats = async () => {
 
 const loadTrades = async (offset = 0) => {
   const res = await apiService.getAnalyticsTrades({
-    mode: 'paper',
+    mode: 'live',
     limit: 20,
     offset,
     sortBy: 'closeTime',
@@ -122,7 +132,7 @@ const loadTrades = async (offset = 0) => {
 /** Build synthetic portfolio history from analytics trades for the PnL chart */
 const buildPortfolioHistory = async () => {
   const res = await apiService.getAnalyticsTrades({
-    mode: 'paper',
+    mode: 'live',
     limit: 200,
     sortBy: 'closeTime',
     sortOrder: 'ASC',
@@ -148,8 +158,20 @@ const buildPortfolioHistory = async () => {
 }
 
 // ─── Socket Signals ──────────────────────────────────────────────────────────
+/** Deduplicate a signal list keeping only the latest entry per symbol. */
+const dedupeSignals = (list: any[]): any[] => {
+  const seen = new Set<string>()
+  return list.filter((s) => {
+    if (seen.has(s.symbol)) return false
+    seen.add(s.symbol)
+    return true
+  })
+}
+
 const handleNewSignal = (signal: any) => {
-  signals.value = [signal, ...signals.value].slice(0, 30)
+  // Upsert by symbol — replace existing entry so each symbol appears only once
+  const filtered = signals.value.filter((s) => s.symbol !== signal.symbol)
+  signals.value = [signal, ...filtered].slice(0, 30)
 }
 
 const handleDashboardData = (data: any) => {
@@ -170,30 +192,31 @@ const handleDashboardData = (data: any) => {
   }
   // Signals
   if (Array.isArray(data.recentSignals)) {
-    signals.value = data.recentSignals.slice(0, 30)
+    signals.value = dedupeSignals(data.recentSignals).slice(0, 30)
   }
 }
 
 const handleMarketData = (data: any) => {
   if (!data) return
-  // Server emits single symbol updates; merge into the list
-  const incoming: MarketSymbol = {
-    symbol: data.symbol,
-    price: data.price ?? data.lastPrice ?? 0,
-    priceChange24h: data.priceChange24h ?? 0,
-    priceChangePercent24h: data.priceChangePercent24h ?? 0,
-    volume24h: data.volume24h ?? 0,
+  // Server emits an array of ticker updates; upsert each entry by symbol
+  const items: any[] = Array.isArray(data) ? data : [data]
+  const map = new Map(marketData.value.map((m) => [m.symbol, m]))
+  for (const item of items) {
+    if (!item?.symbol) continue
+    map.set(item.symbol, {
+      symbol: item.symbol,
+      price: item.price ?? item.lastPrice ?? 0,
+      priceChange24h: item.priceChange24h ?? 0,
+      priceChangePercent24h: item.priceChangePercent24h ?? 0,
+      volume24h: item.volume24h ?? 0,
+    })
   }
-  const idx = marketData.value.findIndex((m) => m.symbol === incoming.symbol)
-  if (idx >= 0) {
-    marketData.value[idx] = incoming
-  } else {
-    marketData.value = [...marketData.value, incoming]
-  }
+  marketData.value = Array.from(map.values())
 }
 
 let unsubSignal: (() => void) | null = null
 let unsubDashboard: (() => void) | null = null
+let unsubPortfolioUpdate: (() => void) | null = null
 let unsubMarketData: (() => void) | null = null
 
 // ─── Trade Table Pagination ───────────────────────────────────────────────────
@@ -211,21 +234,31 @@ const outcomeTag = (outcome: string) => {
   return 'secondary'
 }
 
-const signalTag = (dir: string) => (dir === 'BUY' ? 'success' : 'danger')
+const signalTag = (type: string) => {
+  if (type === 'BUY') return 'success'
+  if (type === 'SELL') return 'danger'
+  return 'secondary'
+}
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 onMounted(async () => {
+  // Register raw socket listeners BEFORE any await so subsequent server pushes
+  // are captured. (The initial 'dashboard-data' fires on connect in main.ts
+  // before the component mounts, so we rely on REST calls for the first load.)
+  unsubDashboard = websocket.listenRaw('dashboard-data', handleDashboardData)
+  unsubPortfolioUpdate = websocket.listenRaw('portfolio-update', handleDashboardData)
+  unsubSignal = websocket.listenRaw('new-signal', handleNewSignal)
+  unsubMarketData = websocket.listenRaw('market-data', handleMarketData)
+
   await Promise.all([loadStats(), loadTrades()])
   await buildPortfolioHistory()
   loading.value = false
-  unsubSignal = websocket.subscribe('new-signal' as any, handleNewSignal)
-  unsubDashboard = websocket.subscribe('dashboard-data' as any, handleDashboardData)
-  unsubMarketData = websocket.subscribe('market-data' as any, handleMarketData)
 })
 
 onUnmounted(() => {
-  unsubSignal?.()
   unsubDashboard?.()
+  unsubPortfolioUpdate?.()
+  unsubSignal?.()
   unsubMarketData?.()
 })
 </script>
@@ -411,9 +444,6 @@ onUnmounted(() => {
           <DataTable
             v-else
             :value="marketData"
-            :rows="6"
-            paginator
-            :paginator-template="'PrevPageLink PageLinks NextPageLink'"
             size="small"
             class="market-table"
             striped-rows
@@ -429,11 +459,6 @@ onUnmounted(() => {
                 <span :class="data.priceChangePercent24h >= 0 ? 'text-[#26c281]' : 'text-[#e74c3c]'">
                   {{ data.priceChangePercent24h >= 0 ? '+' : '' }}{{ fmt(data.priceChangePercent24h, 2) }}%
                 </span>
-              </template>
-            </Column>
-            <Column field="volume24h" header="Volume 24h">
-              <template #body="{ data }">
-                <span class="text-[#a0a6b2]">{{ fmt(data.volume24h, 0) }}</span>
               </template>
             </Column>
             <template #empty>
@@ -457,22 +482,35 @@ onUnmounted(() => {
           <div v-else-if="signals.length === 0" class="text-[#6e7684] text-sm text-center py-6">
             Waiting for signals…
           </div>
-          <div v-else class="flex flex-col gap-2 max-h-[260px] overflow-y-auto pr-1">
+          <div v-else class="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1">
             <div
               v-for="sig in signals"
               :key="sig.id ?? sig.timestamp"
-              class="flex items-center justify-between py-2 px-3 rounded-lg bg-[#252d3a] border border-[#323a47]"
+              class="py-2 px-3 rounded-lg bg-[#252d3a] border border-[#323a47]"
             >
-              <div class="flex items-center gap-2 min-w-0">
-                <Tag :severity="signalTag(sig.direction)" :value="sig.direction" class="text-xs" />
-                <span class="font-semibold text-sm text-white truncate">{{ sig.symbol }}</span>
-                <span v-if="sig.indicator" class="text-[#6e7684] text-xs truncate">{{ sig.indicator }}</span>
-              </div>
-              <div class="flex flex-col items-end gap-0.5 text-xs shrink-0">
-                <span v-if="sig.price" class="text-[#a0a6b2]">@ <span class="text-white">${{ fmt(sig.price) }}</span></span>
-                <span v-if="sig.strength" class="text-[#a0a6b2]">
-                  Strength: <span class="text-[#3498db] font-medium">{{ sig.strength }}</span>
+              <!-- Row 1: type badge + symbol + timestamp -->
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <div class="flex items-center gap-2 min-w-0">
+                  <Tag :severity="signalTag(sig.type ?? sig.direction ?? '')" :value="sig.type ?? sig.direction ?? '—'" class="text-xs shrink-0" />
+                  <span class="font-semibold text-sm text-white truncate">{{ sig.symbol }}</span>
+                </div>
+                <span class="text-[#6e7684] text-xs shrink-0">
+                  {{ new Date(Number(sig.timestamp)).toLocaleTimeString() }}
                 </span>
+              </div>
+              <!-- Row 2: reason -->
+              <p v-if="sig.reason" class="text-[#a0a6b2] text-xs m-0 truncate">{{ sig.reason }}</p>
+              <!-- Row 3: confidence -->
+              <div v-if="sig.confidence !== undefined" class="flex items-center gap-2 mt-1">
+                <span class="text-[#6e7684] text-xs">Confidence</span>
+                <div class="flex-1 h-1 rounded-full bg-[#323a47] overflow-hidden">
+                  <div
+                    class="h-full rounded-full transition-all"
+                    :class="sig.confidence >= 70 ? 'bg-[#26c281]' : sig.confidence >= 40 ? 'bg-[#f39c12]' : 'bg-[#e74c3c]'"
+                    :style="{ width: Math.min(sig.confidence, 100) + '%' }"
+                  />
+                </div>
+                <span class="text-xs text-white font-medium shrink-0">{{ sig.confidence }}%</span>
               </div>
             </div>
           </div>
@@ -497,8 +535,6 @@ onUnmounted(() => {
           :rows="tradesPagination.limit"
           :total-records="tradesPagination.total"
           lazy
-          paginator
-          :paginator-template="'FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink'"
           size="small"
           class="history-table"
           striped-rows

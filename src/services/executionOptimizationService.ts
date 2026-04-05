@@ -10,6 +10,7 @@ import {
 import { BinanceService } from './binanceService';
 import logger, { toLogError } from './logger';
 import config from '../config';
+import { OrderType } from 'binance-api-node';
 
 /**
  * Execution Optimization Service - Optimizes order execution to minimize slippage and costs
@@ -291,7 +292,7 @@ export class ExecutionOptimizationService {
     marketImpact: number
   ): Promise<SmartRoutingDecision> {
     
-    let recommendedOrderType: 'MARKET' | 'LIMIT' = 'MARKET';
+    let recommendedOrderType:OrderType
     let confidence = 0.5;
     let reasoning = '';
     
@@ -299,11 +300,11 @@ export class ExecutionOptimizationService {
     const orderValue = orderRequest.quantity * marketData.price;
     
     if (marketImpact > 0.001) { // 0.1% impact
-      recommendedOrderType = 'LIMIT';
+      recommendedOrderType = OrderType.LIMIT;
       confidence = 0.8;
       reasoning = 'High market impact detected, using limit order';
     } else if (orderValue < 100) { // Small orders
-      recommendedOrderType = 'MARKET';
+      recommendedOrderType = OrderType.MARKET;
       confidence = 0.9;
       reasoning = 'Small order, market execution for speed';
     } else {
@@ -312,11 +313,11 @@ export class ExecutionOptimizationService {
       const spreadPercent = spread / marketData.price;
       
       if (spreadPercent < 0.001) {
-        recommendedOrderType = 'MARKET';
+        recommendedOrderType = OrderType.MARKET;
         confidence = 0.8;
         reasoning = 'Tight spread, market execution acceptable';
       } else {
-        recommendedOrderType = 'LIMIT';
+        recommendedOrderType = OrderType.LIMIT;
         confidence = 0.7;
         reasoning = 'Wide spread, limit order for better price';
       }
@@ -331,7 +332,7 @@ export class ExecutionOptimizationService {
     const estimatedFees = this.estimateFees(orderRequest, marketData.price);
     
     // Estimate execution time based on order type and market conditions
-    const estimatedExecutionTime = recommendedOrderType === 'MARKET' ? 100 : 1000;
+    const estimatedExecutionTime = recommendedOrderType === OrderType.MARKET ? 100 : 1000;
     
     return {
       symbol: orderRequest.symbol,
@@ -362,7 +363,7 @@ export class ExecutionOptimizationService {
     optimizedOrder.type = routingDecision.recommendedOrderType;
     
     // Optimize limit price if using limit orders
-    if (optimizedOrder.type === 'LIMIT') {
+    if (optimizedOrder.type === OrderType.LIMIT) {
       const marketDepth = await this.getMarketDepth(optimizedOrder.symbol);
       optimizedOrder.price = this.calculateOptimalLimitPrice(
         optimizedOrder,
@@ -377,7 +378,7 @@ export class ExecutionOptimizationService {
     }
     
     // Set time in force based on order type
-    if (optimizedOrder.type === 'LIMIT') {
+    if (optimizedOrder.type === OrderType.LIMIT) {
       optimizedOrder.timeInForce = 'GTC'; // Good Till Cancelled
     } else {
       optimizedOrder.timeInForce = 'IOC'; // Immediate or Cancel for market orders

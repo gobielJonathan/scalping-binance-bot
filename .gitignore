@@ -38,3 +38,6 @@ coverage/
 # Trading data
 backtest_results/
 trade_history/
+
+
+test_reports

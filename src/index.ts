@@ -6,6 +6,8 @@ import { MarketDataService } from "./services/marketDataService";
 import { DashboardService } from "./dashboard/dashboardService";
 import { Candle, MarketData, TradingSignal } from "./types";
 import { BinanceService, DatabaseService, logger, PairSelectorService } from "./services";
+import { PatternRecognizer } from "./utils/patternRecognizer";
+import { OrderType } from "binance-api-node";
 
 /**
  * Main trading bot application
@@ -16,6 +18,7 @@ class CryptoScalpingBot {
   private orderManager: OrderManager;
   private marketDataService: MarketDataService | null = null;
   private dashboard: DashboardService;
+  private patternRecognizer: PatternRecognizer = new PatternRecognizer();
   private isRunning: boolean = false;
   private marketDataCache: Map<string, Candle[]> = new Map();
   // Map is the single source of truth for market data — O(1) read/write by symbol
@@ -77,6 +80,11 @@ class CryptoScalpingBot {
       this.database = services.database;
       logger.info("Database service connected");
     }
+  }
+
+  /** Expose RiskManager so main() can sync the real exchange balance. */
+  getRiskManager(): RiskManager {
+    return this.riskManager;
   }
 
   /**
@@ -432,6 +440,46 @@ class CryptoScalpingBot {
   /**
    * Process trading signals for a specific pair
    */
+  /**
+   * Boost a signal's confidence using chart pattern confirmation.
+   * - Aligning pattern (same direction, recent): +confidence × 0.3 (up to +20 pts)
+   * - Conflicting pattern (opposite direction, recent): −10 pts
+   * - Volume-confirmed pattern adds an extra +5 pts
+   * Returns a new signal object (original is not mutated).
+   */
+  private boostSignalWithPatterns(signal: TradingSignal, candles: Candle[]): TradingSignal {
+    const patterns = this.patternRecognizer.identifyScalpingPatterns(candles);
+    if (patterns.length === 0) return signal;
+
+    const signalDir = signal.type === 'BUY' ? 'bullish' : 'bearish';
+    let boost = 0;
+    let boostReasons: string[] = [];
+
+    for (const p of patterns) {
+      const aligns = p.direction === signalDir;
+      const conflicts = p.direction !== signalDir;
+      const weight = (p.confidence / 100) * 0.3; // scale by pattern's own confidence
+
+      if (aligns) {
+        const pts = Math.min(20, Math.round(signal.confidence * weight));
+        boost += pts;
+        if (p.volumeConfirmation) boost += 5;
+        boostReasons.push(`${p.name}(+${pts}${p.volumeConfirmation ? '+5vol' : ''})`);
+      } else if (conflicts) {
+        boost -= 10;
+        boostReasons.push(`${p.name}(-10 conflict)`);
+      }
+    }
+
+    const newConfidence = Math.max(0, Math.min(100, signal.confidence + boost));
+    const reasonSuffix = boostReasons.length > 0 ? ` | Patterns: ${boostReasons.join(', ')}` : '';
+    return {
+      ...signal,
+      confidence: newConfidence,
+      reason: (signal.reason ?? '') + reasonSuffix,
+    };
+  }
+
   private async processSignalForPair(pair: string): Promise<void> {
     try {
       let candles: Candle[] = [];
@@ -469,7 +517,12 @@ class CryptoScalpingBot {
       }
 
       // Generate trading signal
-      const signal = this.strategy.generateSignal(candles, marketData);
+      const rawSignal = this.strategy.generateSignal(candles, marketData);
+
+      // Boost confidence using chart pattern recognition
+      const signal = (rawSignal.type === 'BUY' || rawSignal.type === 'SELL')
+        ? this.boostSignalWithPatterns(rawSignal, candles)
+        : rawSignal;
 
       if (this.logger) {
         this.logger.info("Signal generated", {
@@ -486,9 +539,11 @@ class CryptoScalpingBot {
       // Broadcast signal to dashboard
       this.dashboard.broadcastSignal({ ...signal, symbol: pair });
 
-      // Execute trades based on signals
-      if (signal.type === "BUY" || signal.type === "SELL") {
+      // Execute trades based on signals — require >50% confidence
+      if ((signal.type === "BUY" || signal.type === "SELL") && signal.confidence > 50) {
         await this.executeSignal(pair, signal, marketData);
+      } else if (signal.type === "BUY" || signal.type === "SELL") {
+        logger.info(`Signal skipped (low confidence ${signal.confidence}%): ${signal.type} ${pair}`);
       }
     } catch (error) {
       logger.error(`Error processing signal for ${pair}:`, { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
@@ -526,7 +581,7 @@ class CryptoScalpingBot {
       const orderRequest = {
         symbol: pair,
         side: signal.type as "BUY" | "SELL",
-        type: "MARKET" as const,
+        type: OrderType.MARKET,
         quantity: orderSize,
       };
 
@@ -659,11 +714,29 @@ class CryptoScalpingBot {
 // Main execution
 async function main() {
   const bot = new CryptoScalpingBot();
-  bot.setServices({
-    binanceService: new BinanceService(),
-    database: new DatabaseService(), // Replace with actual database service if available
-    logger: logger,
-  });
+
+  // Inject services so MarketDataService and live trading are available
+  const binanceService = new BinanceService();
+  const databaseService = new DatabaseService();
+  bot.setServices({ binanceService, database: databaseService });
+
+  // ── Sync live balance ──────────────────────────────────────────────────────
+  // In live mode, replace the static INITIAL_CAPITAL with the real Binance USDT
+  // balance so the RiskManager's available balance is accurate from the start.
+  if (config.trading.mode === 'live') {
+    try {
+      const balances = await binanceService.getBalance('USDT');
+      const freeUsdt = balances[0]?.free ?? 0;
+      if (freeUsdt > 0) {
+        config.trading.initialCapital = freeUsdt;
+        bot.getRiskManager().syncBalance(freeUsdt);
+        logger.info(`[main] Synced initial capital from Binance: $${freeUsdt.toFixed(2)} USDT`);
+      }
+    } catch (err) {
+      logger.warn('[main] Could not fetch Binance balance for initial sync — using .env INITIAL_CAPITAL: ' + String(err));
+    }
+  }
+  // ──────────────────────────────────────────────────────────────────────────
 
   // Graceful shutdown handling
   process.on("SIGINT", async () => {

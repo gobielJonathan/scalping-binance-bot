@@ -2,6 +2,8 @@
  * Utility functions for the trading bot
  */
 
+import { quoteAssets } from "../constants/assets";
+
 /**
  * Format numbers for display
  */
@@ -217,9 +219,7 @@ export function timeSince(timestamp: number): string {
  */
 export function parseTradingPair(symbol: string): { base: string; quote: string } {
   // Common quote currencies
-  const quotes = ['USDT', 'BUSD', 'BTC', 'ETH', 'BNB', 'USDC'];
-  
-  for (const quote of quotes) {
+  for (const quote of quoteAssets) {
     if (symbol.endsWith(quote)) {
       return {
         base: symbol.slice(0, -quote.length),

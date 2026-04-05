@@ -1,0 +1,1 @@
+export const quoteAssets = ['USDT', 'BUSD', 'BNB', 'BTC'];

@@ -7,6 +7,7 @@ import { logger } from './logger';
 import config from '../config';
 import BinanceService from './binanceService';
 import { OrderType } from 'binance-api-node';
+import { quoteAssets } from '../constants/assets';
 
 /**
  * Order management service for handling trade execution
@@ -142,7 +143,6 @@ export class OrderManager {
         let safeQuantity = finalQuantity;
 
         // Resolve base asset from symbol (e.g. BNBUSDT → BNB, PEPEUSDT → PEPE)
-        const quoteAssets = ['USDT'];
         const baseAsset = quoteAssets.reduce(
           (s, q) => (s.endsWith(q) ? s.slice(0, -q.length) : s),
           orderRequest.symbol
@@ -287,7 +287,6 @@ export class OrderManager {
         // avoiding -1102 Insufficient balance when stored qty > actual holdings.
         let closeQty = position.quantity;
         try {
-          const quoteAssets = ['USDT', 'BUSD', 'BNB', 'BTC'];
           const baseAsset = quoteAssets.reduce((s, q) => s.endsWith(q) ? s.slice(0, -q.length) : s, position.symbol);
           const balances = await this.binanceService.getBalance(baseAsset);
           const available = balances[0]?.free ?? 0;

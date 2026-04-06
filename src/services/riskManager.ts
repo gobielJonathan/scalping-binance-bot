@@ -194,7 +194,6 @@ export class RiskManager {
       marketData
     );
     const positionValue = orderRequest.quantity * currentPrice;
-    const optimalValue = optimalQuantity * currentPrice;
 
     // Always isolated margin — leverage is always active
     const leverage = config.trading.leverage;
@@ -598,7 +597,6 @@ export class RiskManager {
     const lockedBalance = this.portfolio.lockedBalance;
     this.portfolio.availableBalance = Math.max(0, realUsdtBalance - lockedBalance);
     this.portfolio.totalBalance = realUsdtBalance + this.portfolio.totalPnl;
-    
     logger.info('Balance synced with exchange', { 
       totalBalance: this.portfolio.totalBalance,
       availableBalance: this.portfolio.availableBalance,

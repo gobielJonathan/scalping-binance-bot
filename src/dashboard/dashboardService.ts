@@ -33,7 +33,8 @@ export class DashboardService {
       cors: {
         origin: "*",
         methods: ["GET", "POST"]
-      }
+      },
+      path: "/api/socket.io"
     });
     
     this.setupMiddleware();

@@ -1,6 +1,7 @@
 import { ExecutionOptimizationService } from '../services/executionOptimizationService';
 import { BinanceService } from '../services/binanceService';
 import { OrderRequest, MarketData, MarketDepth, SmartRoutingDecision } from '../types';
+import { OrderType } from 'binance-api-node';
 
 // Mock BinanceService
 const mockBinanceService = {
@@ -22,7 +23,7 @@ describe('ExecutionOptimizationService', () => {
       const orderRequest: OrderRequest = {
         symbol: 'BTCUSDT',
         side: 'BUY',
-        type: 'MARKET',
+        type: OrderType.MARKET,
         quantity: 0.01
       };
 
@@ -71,7 +72,7 @@ describe('ExecutionOptimizationService', () => {
       const orderRequest: OrderRequest = {
         symbol: 'BTCUSDT',
         side: 'BUY',
-        type: 'MARKET',
+        type: OrderType.MARKET,
         quantity: 0.001 // Small order
       };
 
@@ -107,7 +108,7 @@ describe('ExecutionOptimizationService', () => {
       const orderRequest: OrderRequest = {
         symbol: 'BTCUSDT',
         side: 'BUY',
-        type: 'MARKET',
+        type: OrderType.MARKET,
         quantity: 0.01
       };
 
@@ -115,7 +116,7 @@ describe('ExecutionOptimizationService', () => {
         symbol: 'BTCUSDT',
         orderSize: 0.01,
         recommendedExchange: 'Binance',
-        recommendedOrderType: 'MARKET' as 'MARKET',
+        recommendedOrderType: OrderType.MARKET,
         estimatedSlippage: 0.0001,
         estimatedFees: 0.5,
         estimatedExecutionTime: 100,
@@ -147,7 +148,7 @@ describe('ExecutionOptimizationService', () => {
       expect(mockBinanceService.placeOrder).toHaveBeenCalledWith({
         symbol: 'BTCUSDT',
         side: 'BUY',
-        type: 'MARKET',
+        type: OrderType.MARKET,
         quantity: 0.01,
         timeInForce: 'IOC'
       });
@@ -157,7 +158,7 @@ describe('ExecutionOptimizationService', () => {
       const largeOrderRequest: OrderRequest = {
         symbol: 'BTCUSDT',
         side: 'BUY',
-        type: 'MARKET',
+        type: OrderType.MARKET,
         quantity: 1 // Large order that should trigger splitting
       };
 
@@ -165,7 +166,7 @@ describe('ExecutionOptimizationService', () => {
         symbol: 'BTCUSDT',
         orderSize: 1,
         recommendedExchange: 'Binance',
-        recommendedOrderType: 'MARKET' as 'MARKET',
+        recommendedOrderType: OrderType.MARKET,
         estimatedSlippage: 0.001,
         estimatedFees: 50,
         estimatedExecutionTime: 1000,
@@ -255,7 +256,7 @@ describe('ExecutionOptimizationService', () => {
       const orderRequest: OrderRequest = {
         symbol: 'BTCUSDT',
         side: 'BUY',
-        type: 'MARKET',
+        type: OrderType.MARKET,
         quantity: 10 // Large quantity to test market impact
       };
 
@@ -292,7 +293,7 @@ describe('ExecutionOptimizationService', () => {
       const orderRequest: OrderRequest = {
         symbol: 'BTCUSDT',
         side: 'BUY',
-        type: 'MARKET',
+        type: OrderType.MARKET,
         quantity: 0.01
       };
 
@@ -300,7 +301,7 @@ describe('ExecutionOptimizationService', () => {
         symbol: 'BTCUSDT',
         orderSize: 0.01,
         recommendedExchange: 'Binance',
-        recommendedOrderType: 'MARKET' as 'MARKET',
+        recommendedOrderType: OrderType.MARKET,
         estimatedSlippage: 0.0001,
         estimatedFees: 0.5,
         estimatedExecutionTime: 100,
@@ -320,7 +321,7 @@ describe('ExecutionOptimizationService', () => {
       const orderRequest: OrderRequest = {
         symbol: 'BTCUSDT',
         side: 'BUY',
-        type: 'MARKET',
+        type: OrderType.MARKET,
         quantity: 0.01
       };
 

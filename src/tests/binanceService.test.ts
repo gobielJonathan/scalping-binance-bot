@@ -1,6 +1,7 @@
 import { BinanceService } from '../services/binanceService';
 import config from '../config/index';
 import { OrderRequest } from '../types';
+import { OrderType } from 'binance-api-node';
 
 // Mock WebSocket for testing
 jest.mock('ws');
@@ -92,7 +93,7 @@ describe('BinanceService', () => {
       const orderRequest: OrderRequest = {
         symbol: 'BTCUSDT',
         side: 'BUY',
-        type: 'MARKET',
+        type: OrderType.MARKET,
         quantity: 0.001,
         price: 50000
       };

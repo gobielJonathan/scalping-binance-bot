@@ -1,4 +1,4 @@
-function createCleanup() {
+export function createCleanup() {
   const listeners: (() => any)[] = [];
 
   return {
@@ -11,6 +11,5 @@ function createCleanup() {
     },
   };
 }
-
 
 export const listenerCleanup = createCleanup();

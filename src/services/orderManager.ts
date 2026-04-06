@@ -371,11 +371,8 @@ export class OrderManager {
 
       if (stopResult) {
         logger.info(`Stop loss order placed for position ${position.id} at $${position.stopLoss}`);
-      } else if (!this.binanceService.hasAlgoOrderRestriction(position.symbol)) {
-        // Only warn if this is genuinely unexpected (not a known algo-order-only symbol)
-        logger.warn(`No exchange stop order for ${position.symbol} — software monitoring active at $${position.stopLoss}`);
       } else {
-        logger.debug(`${position.symbol} uses software stop-loss (Algo Order API required) at $${position.stopLoss}`);
+        logger.warn(`No exchange stop order for ${position.symbol} — software monitoring active at $${position.stopLoss}`);
       }
     } catch (error) {
       logger.error(`Failed to place stop loss for position ${position.id}:`, { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
@@ -396,11 +393,8 @@ export class OrderManager {
 
       if (tpResult) {
         logger.info(`Take profit order placed for position ${position.id} at $${position.takeProfit}`);
-      } else if (!this.binanceService.hasAlgoOrderRestriction(position.symbol)) {
-        // Only warn if this is genuinely unexpected (not a known algo-order-only symbol)
-        logger.warn(`No exchange take-profit order for ${position.symbol} — software monitoring active at $${position.takeProfit}`);
       } else {
-        logger.debug(`${position.symbol} uses software take-profit (Algo Order API required) at $${position.takeProfit}`);
+        logger.warn(`No exchange take-profit order for ${position.symbol} — software monitoring active at $${position.takeProfit}`);
       }
     } catch (error) {
       logger.error(`Failed to place take profit for position ${position.id}:`, { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });

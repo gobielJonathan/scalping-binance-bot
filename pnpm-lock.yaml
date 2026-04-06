@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       binance-api-node:
-        specifier: ^0.12.4
-        version: 0.12.9(encoding@0.1.13)
+        specifier: ^0.13.8
+        version: 0.13.8(encoding@0.1.13)
       chart.js:
         specifier: ^4.4.0
         version: 4.5.1
@@ -780,9 +780,9 @@ packages:
   bignumber.js@9.3.1:
     resolution: {integrity: sha512-Ko0uX15oIUS7wJ3Rb30Fs6SkVbLmPBAKdlm7q9+ak9bbIeFf0MwuBsQV6z7+X768/cHsfg+WlysDWJcmthjsjQ==}
 
-  binance-api-node@0.12.9:
-    resolution: {integrity: sha512-FpAxPhaWMb9JYFKYRZ/tquKuiMGtpu1DtC5Q7ODmvQj7ai+f+bfEkREzlUJnLLLtPWfxm6lmS6mv8l2kGFDCLQ==}
-    engines: {yarn: '>= 1.0.0'}
+  binance-api-node@0.13.8:
+    resolution: {integrity: sha512-Ny0+3KeBwmIPVUUj3jrTg+Z/VR1KeGwOmtET9ES9t2yavPx+48p0V/p4YSxodazB3PNk0MrVuhEfGovd3CdMng==}
+    engines: {npm: '>= 6.0.0'}
 
   binary-extensions@2.3.0:
     resolution: {integrity: sha512-Ceh+7ox5qe7LJuLHoY0feh3pHuUDHAcRUeyL2VYghZwfpkNIy/+8Ocg0a3UuSoYzavmylwuLWQOf3hl0jjMMIw==}
@@ -1530,9 +1530,6 @@ packages:
 
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
-
-  isomorphic-fetch@3.0.0:
-    resolution: {integrity: sha512-qvUtwJ3j6qwsF3jLxkZ72qCgjMysPzDfeV240JHiGZsANBYd+EEuu35v7dfrJ9Up0Ak07D7GGSkGhCHTqg/5wA==}
 
   isomorphic-ws@4.0.1:
     resolution: {integrity: sha512-BhBvN2MBpWTaSHdWRb/bwdZJ1WaehQ2L1KngkCkfLUGF0mAWAT1sQUQacEmQ0jXkFw/czDXPNQSL5u2/Krsz1w==}
@@ -2571,9 +2568,6 @@ packages:
   webidl-conversions@3.0.1:
     resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
 
-  whatwg-fetch@3.6.20:
-    resolution: {integrity: sha512-EqhiFU6daOA8kpjOWTL0olhVOF3i7OrFzSYiGsEMB8GcXS+RrzauAERX65xMeNWVqxA6HXH2m69Z9LaKKdisfg==}
-
   whatwg-url@5.0.0:
     resolution: {integrity: sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw==}
 
@@ -3557,13 +3551,13 @@ snapshots:
 
   bignumber.js@9.3.1: {}
 
-  binance-api-node@0.12.9(encoding@0.1.13):
+  binance-api-node@0.13.8(encoding@0.1.13):
     dependencies:
       https-proxy-agent: 5.0.1
-      isomorphic-fetch: 3.0.0(encoding@0.1.13)
       isomorphic-ws: 4.0.1(ws@7.5.10)
       json-bigint: 1.0.0
       lodash.zipobject: 4.18.0
+      node-fetch: 2.7.0(encoding@0.1.13)
       reconnecting-websocket: 4.4.0
       ws: 7.5.10
     transitivePeerDependencies:
@@ -4395,13 +4389,6 @@ snapshots:
   is-stream@2.0.1: {}
 
   isexe@2.0.0: {}
-
-  isomorphic-fetch@3.0.0(encoding@0.1.13):
-    dependencies:
-      node-fetch: 2.7.0(encoding@0.1.13)
-      whatwg-fetch: 3.6.20
-    transitivePeerDependencies:
-      - encoding
 
   isomorphic-ws@4.0.1(ws@7.5.10):
     dependencies:
@@ -5659,8 +5646,6 @@ snapshots:
       makeerror: 1.0.12
 
   webidl-conversions@3.0.1: {}
-
-  whatwg-fetch@3.6.20: {}
 
   whatwg-url@5.0.0:
     dependencies:

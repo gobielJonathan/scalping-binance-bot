@@ -188,8 +188,6 @@ export class BinanceService {
   private baseURL: string;
   private wsBaseURL: string;
   private symbolInfoCache: Map<string, BinanceSymbolInfo> = new Map();
-  // Symbols that returned -4135 (Algo Order API required) — skip after first rejection
-  private noAlgoOrderSymbols = new Set<string>();
 
   constructor() {
     this.isTestnet = config.binance.testnet;
@@ -634,8 +632,6 @@ export class BinanceService {
       );
       return null;
     }
-    // Skip silently for symbols known to reject algo orders
-    if (this.noAlgoOrderSymbols.has(symbol)) return null;
     await this.checkRateLimit();
 
     const symbolInfo = await this.getCachedSymbolInfo(symbol);
@@ -683,16 +679,13 @@ export class BinanceService {
       // -4135 / "Algo Order API" error means this symbol requires a different endpoint
       const msg: string = error?.message ?? "";
       if (msg.includes("Algo Order") || error?.code === -4135) {
-        if (!this.noAlgoOrderSymbols.has(symbol)) {
-          this.noAlgoOrderSymbols.add(symbol);
-          logger.warn(
-            `STOP_MARKET rejected for ${symbol} (Algo Order API required) — software stop-loss active (won't retry)`,
-            {
-              source: "BinanceService",
-              context: { symbol, side, stopPrice: stopPriceStr },
-            },
-          );
-        }
+        logger.warn(
+          `STOP_MARKET rejected for ${symbol} (Algo Order API required) — relying on software stop-loss`,
+          {
+            source: "BinanceService",
+            context: { symbol, side, stopPrice: stopPriceStr },
+          },
+        );
         return null;
       }
       logger.error("Failed to place futures stop-market order", {
@@ -721,8 +714,6 @@ export class BinanceService {
       );
       return null;
     }
-    // Skip silently for symbols known to reject algo orders
-    if (this.noAlgoOrderSymbols.has(symbol)) return null;
     await this.checkRateLimit();
 
     const symbolInfo = await this.getCachedSymbolInfo(symbol);
@@ -768,16 +759,13 @@ export class BinanceService {
     } catch (error: any) {
       const msg: string = error?.message ?? "";
       if (msg.includes("Algo Order") || error?.code === -4135) {
-        if (!this.noAlgoOrderSymbols.has(symbol)) {
-          this.noAlgoOrderSymbols.add(symbol);
-          logger.warn(
-            `TAKE_PROFIT_MARKET rejected for ${symbol} (Algo Order API) — software take-profit active (won't retry)`,
-            {
-              source: "BinanceService",
-              context: { symbol, side, takeProfitPrice: tpPriceStr },
-            },
-          );
-        }
+        logger.warn(
+          `TAKE_PROFIT_MARKET rejected for ${symbol} (Algo Order API) — relying on software take-profit`,
+          {
+            source: "BinanceService",
+            context: { symbol, side, takeProfitPrice: tpPriceStr },
+          },
+        );
         return null;
       }
       logger.error("Failed to place futures take-profit-market order", {
@@ -787,15 +775,6 @@ export class BinanceService {
       });
       throw this.handleBinanceError(error);
     }
-  }
-
-  /**
-   * Returns true for symbols that require the Algo Order API endpoint and
-   * therefore cannot have STOP_MARKET / TAKE_PROFIT_MARKET placed via the
-   * standard futures order endpoint.
-   */
-  hasAlgoOrderRestriction(symbol: string): boolean {
-    return this.noAlgoOrderSymbols.has(symbol);
   }
 
   // ── End Isolated Margin Methods ────────────────────────────────────────────

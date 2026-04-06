@@ -45,7 +45,7 @@
   "author": "Crypto Scalping Bot",
   "license": "MIT",
   "dependencies": {
-    "binance-api-node": "^0.12.4",
+    "binance-api-node": "^0.13.8",
     "chart.js": "^4.4.0",
     "cors": "^2.8.6",
     "detect-port": "^2.1.0",

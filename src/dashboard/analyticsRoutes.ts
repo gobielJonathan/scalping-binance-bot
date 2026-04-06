@@ -3,9 +3,8 @@ import { TradeAnalyticsService } from "../services/tradeAnalyticsService";
 import { DatabaseService } from "../database/databaseService";
 import { logger } from "../services/logger";
 import BinanceService from "../services/binanceService";
-import config from "../config";
 
-const router = Router();
+const router: Router = Router();
 const analyticsService = new TradeAnalyticsService();
 const databaseService = new DatabaseService();
 const binanceService = new BinanceService();

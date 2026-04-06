@@ -584,9 +584,25 @@ export class OrderManager {
     for (const position of positions) {
       this.riskManager.updatePosition(position.id, price);
 
+      // Grace period: skip exit checks until the mark price has settled near
+      // the entry price OR 5 seconds have elapsed (whichever comes first).
+      //
+      // Why: Binance mark price is a composite from multiple spot exchanges and
+      // can diverge from the actual futures fill price for the first few seconds
+      // after entry — enough to spuriously trigger a stop-loss immediately.
+      // We require BOTH conditions to clear before enabling exit checks:
+      //   1. At least 5 seconds since position open (mainnet convergence buffer)
+      //   2. Mark price within 2× the stop-loss distance of the entry price
+      //      (failsafe: if mark price never converges, e.g. testnet, we still
+      //       start monitoring after 5s — avoiding a permanent blind spot)
+      const positionAgeMs = Date.now() - position.openTime;
+      const stopDistance = Math.abs(position.entryPrice - position.stopLoss);
+      const markDistanceFromEntry = Math.abs(price - position.entryPrice);
+      const markPriceSettled = markDistanceFromEntry <= stopDistance * 2;
+      if (positionAgeMs < 5_000 && !markPriceSettled) continue;
+
       // Gap detection: price jumped far past stop-loss (flash crash scenario)
       const gapThreshold = 2;
-      const stopDistance = Math.abs(position.entryPrice - position.stopLoss);
       const priceDistance = Math.abs(price - position.stopLoss);
       const isPriceGap =
         this.riskManager.shouldTriggerStopLoss(position.id, price) &&

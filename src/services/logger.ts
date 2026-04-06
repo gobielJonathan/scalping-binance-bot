@@ -72,7 +72,7 @@ class Logger {
     /initializ/i,
     // /starting|started|running|stopped|shutdown|shutting/i,
     // /connected|disconnected|server/i,
-    // /\[paper trade\]|\[live trade\]/i,
+    /\[paper trade\]|\[live trade\]/i,
     /order placed|order rejected|order executed|order failed/i,
     /position (opened|closed|close)/i,
     // /paper trade executed|paper position closed/i,

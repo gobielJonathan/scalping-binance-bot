@@ -25,11 +25,12 @@ class CryptoScalpingBot {
   private currentMarketDataMap: Map<string, MarketData> = new Map();
 
   // Services that will be injected when available
-  private binanceService: any = null;
+  private binanceService: BinanceService | null = null;
   private logger: any = null;
   private database: any = null;
   private pairSelectorService: PairSelectorService | null = null;
   private volatilityRefreshTimer: NodeJS.Timeout | null = null;
+  private futuresUserStreamCleanup: (() => void) | null = null;
 
   constructor() {
     logger.info("Initializing Crypto Scalping Bot...");
@@ -52,7 +53,7 @@ class CryptoScalpingBot {
    * Set external services (dependency injection)
    */
   setServices(services: {
-    binanceService?: any;
+    binanceService?: BinanceService;
     logger?: any;
     database?: any;
   }): void {
@@ -231,6 +232,32 @@ class CryptoScalpingBot {
       this.isRunning = true;
       logger.info("Crypto Scalping Bot is now running!");
 
+      // In live mode, set ISOLATED margin + leverage on every trading pair
+      // before any orders are placed. Binance defaults new symbols to CROSS.
+      if (config.trading.mode === 'live' && this.binanceService) {
+        for (const pair of config.trading.pairs) {
+          try {
+            await this.binanceService.setFuturesLeverage(pair, config.trading.leverage);
+            logger.info(`[init] ${pair}: ISOLATED margin, ${config.trading.leverage}x leverage set`);
+          } catch (err) {
+            logger.warn(`[init] Could not set leverage for ${pair}: ${String(err)}`);
+          }
+        }
+
+        // Start real-time balance sync via Futures user data stream.
+        // Falls back to REST polling (syncBalanceFromExchange) if stream is unavailable.
+        try {
+          this.futuresUserStreamCleanup = await this.binanceService.startFuturesUserDataStream(
+            (usdtWalletBalance: number) => {
+              this.riskManager.syncBalance(usdtWalletBalance);
+              logger.debug(`[WS] Balance synced: $${usdtWalletBalance.toFixed(2)} USDT`);
+            },
+          );
+        } catch (err) {
+          logger.warn(`[WS] Could not start futures user data stream: ${String(err)}`);
+        }
+      }
+
       // Start main trading loop
       this.startTradingLoop();
     } catch (error) {
@@ -256,6 +283,12 @@ class CryptoScalpingBot {
       if (this.volatilityRefreshTimer) {
         clearInterval(this.volatilityRefreshTimer);
         this.volatilityRefreshTimer = null;
+      }
+
+      // Close futures user data stream
+      if (this.futuresUserStreamCleanup) {
+        this.futuresUserStreamCleanup();
+        this.futuresUserStreamCleanup = null;
       }
 
       // Stop MarketDataService
@@ -595,7 +628,7 @@ class CryptoScalpingBot {
       };
 
       logger.info(
-        `Signal: ${signal.type} ${pair} - Confidence: ${signal.confidence}% - ${signal.reason}`,
+        `Signal: ${signal.type} ${pair} - Confidence: ${signal.confidence}%`,
       );
 
       const position = await this.orderManager.executeOrder(
@@ -613,7 +646,12 @@ class CryptoScalpingBot {
 
         // Save to database if available
         if (this.database) {
-          await this.database.saveTrade(position);
+          await this.database.saveTrade({
+            ...position,
+            type: 'MARKET' as const,
+            strategyId: 'scalping',
+            mode: config.trading.mode,
+          });
         }
       }
     } catch (error) {
@@ -727,6 +765,7 @@ async function main() {
   // Inject services so MarketDataService and live trading are available
   const binanceService = new BinanceService();
   const databaseService = new DatabaseService();
+  await databaseService.initializeDatabase();
   bot.setServices({ binanceService, database: databaseService });
 
   // ── Sync live balance ──────────────────────────────────────────────────────

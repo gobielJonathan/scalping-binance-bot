@@ -1,6 +1,5 @@
 import simpleLogger from 'simple-node-logger';
 import fs from 'fs';
-import path from 'path';
 import config from '../config';
 import { LogContext, TradeLogEntry } from '../types';
 import { isObj } from '../utils/is';
@@ -39,7 +38,7 @@ class Logger {
   }
 
   private initializeLogger(): void {
-    this.simpleLogger = simpleLogger.createSimpleLogger({
+    this.simpleLogger = simpleLogger.createSimpleFileLogger({
       logFilePath: 'logs/bot.log',
       timestampFormat: 'YYYY-MM-DD HH:mm:ss.SSS',
       level: 'info'
@@ -53,14 +52,14 @@ class Logger {
       formattedMessage = `[${metadata.source}] ${formattedMessage}`;
     }
     
-    if (metadata?.context) {
+    else if (metadata?.context) {
        formattedMessage+= JSON.stringify(metadata, null, 2) + '\n';
     }
     
-    if (metadata?.performance) {
+    else if (metadata?.performance) {
       formattedMessage += ` (${metadata.performance.duration}ms)`;
     }
-    if(isObj(metadata)) {
+    else if(isObj(metadata)) {
       formattedMessage +=  JSON.stringify(metadata, null, 2) + '\n';
     }
     
@@ -71,19 +70,21 @@ class Logger {
   // Everything else is still written to the log file but silenced in the terminal.
   private static readonly IMPORTANT_PATTERNS = [
     /initializ/i,
-    /starting|started|running|stopped|shutdown|shutting/i,
-    /connected|disconnected|server/i,
-    /\[paper trade\]|\[live trade\]/i,
+    // /starting|started|running|stopped|shutdown|shutting/i,
+    // /connected|disconnected|server/i,
+    // /\[paper trade\]|\[live trade\]/i,
     /order placed|order rejected|order executed|order failed/i,
     /position (opened|closed|close)/i,
-    /paper trade executed|paper position closed/i,
+    // /paper trade executed|paper position closed/i,
     /trade executed|trade closed/i,
     /emergency stop/i,
-    /trading (paused|resumed)/i,
+    // /trading (paused|resumed)/i,
     /p&l:/i,
     /bot (is now|stopped)/i,
-    /dashboard server/i,
-    /seeded portfolio/i,
+    /signal/i,
+    /balance synced/i
+    // /dashboard server/i,
+    // /seeded portfolio/i,
   ];
 
   private shouldPrintToConsole(message: string): boolean {

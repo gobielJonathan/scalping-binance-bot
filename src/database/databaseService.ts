@@ -34,6 +34,10 @@ export class DatabaseService {
    * Initialize the database connection and create tables
    */
   async initializeDatabase(): Promise<void> {
+    if (this.isInitialized) {
+      return;
+    }
+
     return new Promise((resolve, reject) => {
       this.db = new sqlite3.Database(this.dbPath, (err) => {
         if (err) {

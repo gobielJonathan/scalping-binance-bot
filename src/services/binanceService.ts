@@ -188,7 +188,6 @@ export class BinanceService {
     // Isolated margin lives on the spot/margin exchange (not futures)
     this.baseURL = config.binance.baseURL;
     this.wsBaseURL = config.binance.wsURL;
-
     this.initializeClient();
     this.setupRateLimiting();
   }
@@ -200,6 +199,7 @@ export class BinanceService {
         apiSecret: config.binance.secretKey,
         httpBase: this.baseURL,
         wsBase: this.wsBaseURL.replace("/ws", ""),
+        httpFutures: this.baseURL,
         getTime: () => Date.now(),
       });
 
@@ -546,9 +546,9 @@ export class BinanceService {
         ...(orderRequest.timeInForce && {
           timeInForce: orderRequest.timeInForce,
         }),
-      };
+      } as NewFuturesOrder;
 
-      const result = await this.client.futuresOrder(params as NewFuturesOrder);
+      const result = await this.client.futuresOrder(params);
       logger.info("Futures order placed", {
         source: "BinanceService",
         context: {
@@ -602,6 +602,143 @@ export class BinanceService {
       source: "BinanceService",
       context: { symbol, leverage },
     });
+  }
+
+  /**
+   * Place a STOP_MARKET order that closes the entire position (closePosition: true).
+   * Some symbols (e.g. newly listed pairs) do not support STOP_MARKET on the
+   * standard endpoint — for those, returns null and the caller falls back to
+   * software-based stop-loss monitoring.
+   */
+  async placeFuturesStopMarket(
+    symbol: string,
+    side: 'BUY' | 'SELL',
+    stopPrice: number,
+  ): Promise<any> {
+    if (!this.client) throw new Error('Binance client not initialized');
+    if (stopPrice <= 0) {
+      logger.warn(`placeFuturesStopMarket: invalid stopPrice ${stopPrice} for ${symbol} — skipping`, { source: 'BinanceService' });
+      return null;
+    }
+    await this.checkRateLimit();
+
+    const symbolInfo = await this.getCachedSymbolInfo(symbol);
+    let stopPriceStr = stopPrice.toString();
+    if (symbolInfo) {
+      // Check if STOP_MARKET is supported for this symbol
+      const supportedTypes: string[] = symbolInfo.orderTypes ?? [];
+      if (supportedTypes.length > 0 && !supportedTypes.includes('STOP_MARKET')) {
+        logger.warn(`STOP_MARKET not supported for ${symbol} — relying on software stop-loss`, {
+          source: 'BinanceService',
+          context: { symbol, supportedTypes },
+        });
+        return null;
+      }
+
+      const priceFilter = symbolInfo.filters.find((f: any) => f.filterType === 'PRICE_FILTER');
+      if (priceFilter?.tickSize)
+        stopPriceStr = this.formatToStep(stopPrice, priceFilter.tickSize);
+    }
+
+    try {
+      const params = {
+        symbol,
+        side,
+        type: 'STOP_MARKET' as NewFuturesOrder['type'],
+        stopPrice: stopPriceStr,
+        closePosition: 'true',
+        reduceOnly: 'true'
+      } as NewFuturesOrder;
+
+      const result = await this.client.futuresOrder(params);
+      logger.info('Futures stop-market order placed', {
+        source: 'BinanceService',
+        context: { symbol, side, stopPrice: stopPriceStr },
+      });
+      return result;
+    } catch (error: any) {
+      // -4135 / "Algo Order API" error means this symbol requires a different endpoint
+      const msg: string = error?.message ?? '';
+      if (msg.includes('Algo Order') || error?.code === -4135) {
+        logger.warn(`STOP_MARKET rejected for ${symbol} (Algo Order API required) — relying on software stop-loss`, {
+          source: 'BinanceService',
+          context: { symbol, side, stopPrice: stopPriceStr },
+        });
+        return null;
+      }
+      logger.error('Failed to place futures stop-market order', {
+        source: 'BinanceService',
+        error: { stack: error instanceof Error ? error.stack : String(error) },
+        context: { symbol, side, stopPrice: stopPriceStr },
+      });
+      throw this.handleBinanceError(error);
+    }
+  }
+
+  /**
+   * Place a TAKE_PROFIT_MARKET order that closes the entire position (closePosition: true).
+   * Returns null if the symbol doesn't support the order type.
+   */
+  async placeFuturesTakeProfitMarket(
+    symbol: string,
+    side: 'BUY' | 'SELL',
+    takeProfitPrice: number,
+  ): Promise<any> {
+    if (!this.client) throw new Error('Binance client not initialized');
+    if (takeProfitPrice <= 0) {
+      logger.warn(`placeFuturesTakeProfitMarket: invalid price ${takeProfitPrice} for ${symbol} — skipping`, { source: 'BinanceService' });
+      return null;
+    }
+    await this.checkRateLimit();
+
+    const symbolInfo = await this.getCachedSymbolInfo(symbol);
+    let tpPriceStr = takeProfitPrice.toString();
+    if (symbolInfo) {
+      const supportedTypes: string[] = symbolInfo.orderTypes ?? [];
+      if (supportedTypes.length > 0 && !supportedTypes.includes('TAKE_PROFIT_MARKET')) {
+        logger.warn(`TAKE_PROFIT_MARKET not supported for ${symbol} — relying on software take-profit`, {
+          source: 'BinanceService',
+          context: { symbol, supportedTypes },
+        });
+        return null;
+      }
+
+      const priceFilter = symbolInfo.filters.find((f: any) => f.filterType === 'PRICE_FILTER');
+      if (priceFilter?.tickSize)
+        tpPriceStr = this.formatToStep(takeProfitPrice, priceFilter.tickSize);
+    }
+
+    try {
+      const params = {
+        symbol,
+        side,
+        type: 'TAKE_PROFIT_MARKET' as NewFuturesOrder['type'],
+        stopPrice: tpPriceStr,
+        closePosition: 'true',
+      } as unknown as NewFuturesOrder;
+
+      const result = await this.client.futuresOrder(params);
+      logger.info('Futures take-profit-market order placed', {
+        source: 'BinanceService',
+        context: { symbol, side, takeProfitPrice: tpPriceStr },
+      });
+      return result;
+    } catch (error: any) {
+      const msg: string = error?.message ?? '';
+      if (msg.includes('Algo Order') || error?.code === -4135) {
+        logger.warn(`TAKE_PROFIT_MARKET rejected for ${symbol} (Algo Order API) — relying on software take-profit`, {
+          source: 'BinanceService',
+          context: { symbol, side, takeProfitPrice: tpPriceStr },
+        });
+        return null;
+      }
+      logger.error('Failed to place futures take-profit-market order', {
+        source: 'BinanceService',
+        error: { stack: error instanceof Error ? error.stack : String(error) },
+        context: { symbol, side, takeProfitPrice: tpPriceStr },
+      });
+      throw this.handleBinanceError(error);
+    }
   }
 
   // ── End Isolated Margin Methods ────────────────────────────────────────────
@@ -830,6 +967,51 @@ export class BinanceService {
       });
       throw error;
     }
+  }
+
+  /**
+   * Start the Futures user data stream.
+   * Fires ACCOUNT_UPDATE events whenever the USDT balance changes
+   * (trades filled, funding fees, deposits, etc.).
+   * Returns a cleanup function that closes the stream.
+   */
+  async startFuturesUserDataStream(
+    onBalanceUpdate: (usdtWalletBalance: number) => void,
+  ): Promise<() => void> {
+    let cleanup: (() => void) | null = null;
+
+    try {
+      const handler = await this.client.ws.futuresUser((event) => {
+        if (event.eventType !== 'ACCOUNT_UPDATE') return;
+
+        const usdtBalance = event.balances.find(
+          (b) => b.asset === 'USDT',
+        );
+        if (usdtBalance) {
+          const balance = parseFloat(usdtBalance.walletBalance);
+          logger.debug('[WS] Futures ACCOUNT_UPDATE — USDT walletBalance: ' + balance, {
+            source: 'BinanceService',
+          });
+          onBalanceUpdate(balance);
+        }
+      });
+
+      cleanup = handler as unknown as () => void;
+      logger.info('Futures user data stream started', { source: 'BinanceService' });
+    } catch (error) {
+      logger.warn('Failed to start futures user data stream — falling back to polling', {
+        source: 'BinanceService',
+        error: { stack: error instanceof Error ? error.stack : String(error) },
+      });
+    }
+
+    return () => {
+      if (cleanup) {
+        try { cleanup(); } catch { /* ignore */ }
+        cleanup = null;
+        logger.info('Futures user data stream closed', { source: 'BinanceService' });
+      }
+    };
   }
 
   private async createWebSocketConnection(
@@ -1108,7 +1290,7 @@ export class BinanceService {
         });
       }
     }
-
+    
     logger.info("Binance service disconnected", {
       source: "BinanceService",
     });

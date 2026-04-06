@@ -117,7 +117,7 @@ export class RiskManager {
       },
       max_drawdown: {
         type: 'DRAWDOWN',
-        value: 25, // 25% max drawdown
+        value: 50, // 50% max drawdown — daily loss limit (3%) protects capital on a per-day basis
         warningThreshold: 80,
         enabled: true,
         autoReduction: true
@@ -173,6 +173,14 @@ export class RiskManager {
     }
     warnings.push(...lossLimitCheck.warnings);
 
+    // Prevent duplicate positions for the same symbol
+    const existingPosition = this.portfolio.openPositions.find(
+      p => p.symbol === orderRequest.symbol
+    );
+    if (existingPosition) {
+      return { allowed: false, reason: `Position already open for ${orderRequest.symbol}` };
+    }
+
     // Check maximum concurrent trades
     if (this.portfolio.openPositions.length >= config.trading.maxConcurrentTrades) {
       return { allowed: false, reason: 'Maximum concurrent trades reached' };
@@ -210,16 +218,18 @@ export class RiskManager {
       warnings.push(`Requested size is ${((orderRequest.quantity / optimalQuantity - 1) * 100).toFixed(1)}% above optimal`);
     }
 
-    // Check total risk exposure with improved calculation
-    const newRiskExposure = this.calculatePortfolioRiskExposure() + positionValue;
-    const maxRiskExposure = this.portfolio.totalBalance * 0.6; // Max 60% exposure
-    
-    if (newRiskExposure > maxRiskExposure) {
-      const maxAdditionalExposure = maxRiskExposure - this.calculatePortfolioRiskExposure();
-      const maxQuantityByExposure = Math.max(0, maxAdditionalExposure / currentPrice);
-      
-      return { 
-        allowed: false, 
+    // Check total risk exposure — compare margin required (notional / leverage) against
+    // 90% of total capital. Using full notional would always reject leveraged positions.
+    const currentMarginExposure = this.calculatePortfolioRiskExposure() / leverage;
+    const newMarginExposure = currentMarginExposure + (positionValue / leverage);
+    const maxMarginExposure = this.portfolio.totalBalance * 0.9; // 90% of capital as margin
+
+    if (newMarginExposure > maxMarginExposure) {
+      const maxAdditionalMargin = Math.max(0, maxMarginExposure - currentMarginExposure);
+      const maxQuantityByExposure = (maxAdditionalMargin * leverage) / currentPrice;
+
+      return {
+        allowed: false,
         reason: 'Total risk exposure limit would be exceeded',
         maxQuantity: maxQuantityByExposure,
         suggestedQuantity: Math.min(optimalQuantity, maxQuantityByExposure),
@@ -588,6 +598,11 @@ export class RiskManager {
     const lockedBalance = this.portfolio.lockedBalance;
     this.portfolio.availableBalance = Math.max(0, realUsdtBalance - lockedBalance);
     this.portfolio.totalBalance = realUsdtBalance + this.portfolio.totalPnl;
+    
+    logger.info('Balance synced with exchange', { 
+      totalBalance: this.portfolio.totalBalance,
+      availableBalance: this.portfolio.availableBalance,
+     });
   }
 
   /**
@@ -672,12 +687,14 @@ export class RiskManager {
      let status: 'HEALTHY' | 'WARNING' | 'CRITICAL' = 'HEALTHY';
      
      // Calculate comprehensive risk metrics
+     const marginExposure = this.calculatePortfolioRiskExposure() / config.trading.leverage;
+     const maxMarginExposure = this.portfolio.totalBalance * 0.9;
      const metrics: RiskMetrics = {
-       currentRisk: this.calculatePortfolioRiskExposure(),
-       maxRisk: this.portfolio.totalBalance * 0.6,
-       riskUtilization: (this.calculatePortfolioRiskExposure() / (this.portfolio.totalBalance * 0.6)) * 100,
-       avgPositionSize: this.portfolio.openPositions.length > 0 
-         ? this.calculatePortfolioRiskExposure() / this.portfolio.openPositions.length 
+       currentRisk: marginExposure,
+       maxRisk: maxMarginExposure,
+       riskUtilization: (marginExposure / maxMarginExposure) * 100,
+       avgPositionSize: this.portfolio.openPositions.length > 0
+         ? marginExposure / this.portfolio.openPositions.length
          : 0,
        positionCorrelation: this.calculateAveragePositionCorrelation(),
        portfolioVolatility: this.calculatePortfolioVolatility(),

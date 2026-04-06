@@ -7,7 +7,6 @@ import { logger } from './logger';
 import config from '../config';
 import BinanceService from './binanceService';
 import { OrderType } from 'binance-api-node';
-import { quoteAssets } from '../constants/assets';
 
 /**
  * Order management service for handling trade execution
@@ -152,12 +151,6 @@ export class OrderManager {
         // ── Balance guards before placing order ──────────────────────────
         let safeQuantity = finalQuantity;
 
-        // Resolve base asset from symbol (e.g. BNBUSDT → BNB, PEPEUSDT → PEPE)
-        const baseAsset = quoteAssets.reduce(
-          (s, q) => (s.endsWith(q) ? s.slice(0, -q.length) : s),
-          orderRequest.symbol
-        );
-
         if (orderRequest.side === 'BUY') {
           // BUY: verify we have enough USDT to cover the order
           try {
@@ -176,31 +169,30 @@ export class OrderManager {
             logger.warn('[OrderManager] Could not fetch USDT balance for pre-order check: ' + String(balErr));
           }
         } else if (orderRequest.side === 'SELL') {
-          // SELL: always check isolated margin balance
+          // SELL = open SHORT on futures: requires USDT margin, not base asset
           try {
-            const freeBase = await this.binanceService.getIsolatedMarginBalance(orderRequest.symbol, baseAsset);
-            if (freeBase <= 0) {
-              logger.warn(`[OrderManager] SELL skipped — no ${baseAsset} balance on exchange (${orderRequest.symbol})`);
-              return null;
-            }
-            if (safeQuantity > freeBase) {
-              logger.warn(`[OrderManager] Capping SELL qty ${safeQuantity.toFixed(6)} → ${freeBase.toFixed(6)} (free ${baseAsset}: ${freeBase})`);
-              safeQuantity = freeBase * 0.999;
+            const balances = await this.binanceService.getBalance('USDT');
+            const freeUsdt = balances[0]?.free ?? 0;
+            if (freeUsdt > 0) {
+              this.riskManager.syncBalance(freeUsdt);
+              // Reserve 0.2% for taker fee
+              const maxAffordable = (freeUsdt * 0.998) / marketData.price;
+              if (safeQuantity > maxAffordable) {
+                logger.warn(`[OrderManager] Capping SHORT qty ${safeQuantity.toFixed(6)} → ${maxAffordable.toFixed(6)} (free USDT: ${freeUsdt})`);
+                safeQuantity = maxAffordable;
+              }
             }
           } catch (balErr) {
-            logger.warn(`[OrderManager] Could not fetch ${baseAsset} balance for SELL check: ` + String(balErr));
+            logger.warn('[OrderManager] Could not fetch USDT balance for SHORT check: ' + String(balErr));
           }
         }
-        // ──────────────────────────────────────────────────────────────────
 
-        // Always place as isolated margin order with AUTO_BORROW_REPAY
+        // Open futures position (reduceOnly NOT set — this is an opening order)
         const binanceOrder = await this.binanceService.placeMarginOrder({
           symbol: orderRequest.symbol,
           side: orderRequest.side,
           type: OrderType.MARKET,
           quantity: safeQuantity,
-          isIsolated: true,
-          sideEffectType: 'AUTO_BORROW_REPAY',
         });
 
         // Parse actual average fill price
@@ -210,6 +202,10 @@ export class OrderManager {
         position.entryPrice = fillPrice > 0 ? fillPrice : marketData.price;
         if (execQty > 0) position.quantity = execQty;
         position.fees = parseFloat(String(binanceOrder.commission ?? 0)) || 0;
+
+        // Recalculate SL/TP from the actual fill price so exchange orders use valid prices
+        position.stopLoss = calculateStopLoss(position.entryPrice, config.trading.stopLossPercentage, position.side);
+        position.takeProfit = calculateTakeProfit(position.entryPrice, config.trading.takeProfitPercentage, position.side);
 
         // Always attach margin metadata
         position.marginMode = 'isolated_margin';
@@ -225,8 +221,9 @@ export class OrderManager {
         // Add to risk manager
         this.riskManager.addPosition(position);
 
-        // Place stop loss order
+        // Place stop loss and take profit orders on the exchange
         await this.placeStopLossOrder(position);
+        await this.placeTakeProfitOrder(position);
 
         return position;
       }
@@ -300,22 +297,12 @@ export class OrderManager {
         
         // Determine the opposite side for closing
         const closeSide = position.side === 'BUY' ? 'SELL' : 'BUY';
-        
-        // Resolve base asset to check real available balance
-        let closeQty = position.quantity;
-        try {
-          const baseAsset = quoteAssets.reduce((s, q) => s.endsWith(q) ? s.slice(0, -q.length) : s, position.symbol);
-          const available = await this.binanceService.getIsolatedMarginBalance(position.symbol, baseAsset);
-          if (available > 0 && available < closeQty) {
-            logger.warn(`[OrderManager] Adjusting close qty ${closeQty} → ${available} (actual balance)`);
-            closeQty = available;
-          }
-        } catch { /* proceed with stored quantity */ }
 
-        // Always close via isolated margin order
+        // Close futures position with reduceOnly (AUTO_REPAY maps to reduceOnly: true in binanceService)
+        const closeQty = position.quantity;
         const closeOrder = await this.binanceService.placeMarginOrder({
           symbol: position.symbol, side: closeSide, type: OrderType.MARKET,
-          quantity: closeQty, isIsolated: true, sideEffectType: 'AUTO_BORROW_REPAY',
+          quantity: closeQty, sideEffectType: 'AUTO_REPAY',
         });
 
         // Close the position in risk manager
@@ -340,28 +327,44 @@ export class OrderManager {
 
     try {
       const stopSide = position.side === 'BUY' ? 'SELL' : 'BUY';
-      
-      // STOP_LOSS_LIMIT requires both stopPrice (trigger) and price (limit).
-      const limitPrice = stopSide === 'SELL'
-        ? position.stopLoss * 0.995
-        : position.stopLoss * 1.005;
 
-      // Always place as isolated margin stop loss with AUTO_REPAY
-      await this.binanceService.placeMarginOrder({
-        symbol: position.symbol,
-        side: stopSide,
-        type: OrderType.STOP_LOSS_LIMIT,
-        quantity: position.quantity,
-        stopPrice: position.stopLoss,
-        price: limitPrice,
-        timeInForce: 'GTC',
-        isIsolated: true,
-        sideEffectType: 'AUTO_REPAY',
-      });
+      // Use closePosition:true so Binance does not require quantity or reduceOnly.
+      // Returns null if symbol doesn't support STOP_MARKET — software monitoring handles it.
+      const stopResult = await this.binanceService.placeFuturesStopMarket(
+        position.symbol,
+        stopSide,
+        position.stopLoss,
+      );
 
-      logger.info(`Stop loss order placed for position ${position.id} at $${position.stopLoss}`);
+      if (stopResult) {
+        logger.info(`Stop loss order placed for position ${position.id} at $${position.stopLoss}`);
+      } else {
+        logger.warn(`No exchange stop order for ${position.symbol} — software monitoring active at $${position.stopLoss}`);
+      }
     } catch (error) {
       logger.error(`Failed to place stop loss for position ${position.id}:`, { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
+    }
+  }
+
+  private async placeTakeProfitOrder(position: TradePosition): Promise<void> {
+    if (this.paperTradingMode || !this.binanceService) return;
+
+    try {
+      const tpSide = position.side === 'BUY' ? 'SELL' : 'BUY';
+
+      const tpResult = await this.binanceService.placeFuturesTakeProfitMarket(
+        position.symbol,
+        tpSide,
+        position.takeProfit,
+      );
+
+      if (tpResult) {
+        logger.info(`Take profit order placed for position ${position.id} at $${position.takeProfit}`);
+      } else {
+        logger.warn(`No exchange take-profit order for ${position.symbol} — software monitoring active at $${position.takeProfit}`);
+      }
+    } catch (error) {
+      logger.error(`Failed to place take profit for position ${position.id}:`, { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
     }
   }
 
@@ -513,17 +516,15 @@ export class OrderManager {
    * Get optimal order size for a trading signal
    */
   getOptimalOrderSize(_symbol: string, currentPrice: number, signal: any): number {
-    // Calculate position size based on volatility and signal strength
     const basePositionSize = this.riskManager.calculateMaxPositionSize(currentPrice);
-    
-    // Adjust based on signal confidence
+
     const confidenceMultiplier = Math.min(signal.confidence / 100, 1);
     const strengthMultiplier = Math.min(signal.strength / 100, 1);
-    
-    // Conservative approach for scalping
+
     const adjustedSize = basePositionSize * confidenceMultiplier * strengthMultiplier * 0.8;
-    
-    return Math.max(adjustedSize, 0);
+
+    // Return at least 10% of base size so cheap tokens don't produce 0
+    return Math.max(adjustedSize, basePositionSize * 0.1);
   }
 
   /**

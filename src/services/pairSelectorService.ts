@@ -87,13 +87,13 @@ export class PairSelectorService {
 
       const selected = scores.slice(0, topN).map((s) => s.symbol);
 
-      logger.info(`Top ${selected.length} high-volatility pairs selected`);
+      console.info(`Top ${selected.length} high-volatility pairs selected`);
       scores.slice(0, topN).forEach((s, i) => {
         const rank = `${i + 1}.`.padEnd(4);
         const symbol = s.symbol.padEnd(12);
         const change = `${s.priceChangePercent >= 0 ? '+' : ''}${s.priceChangePercent.toFixed(2)}%`.padStart(8);
         const vol = `$${(s.quoteVolume24h / 1_000_000).toFixed(1)}M`.padStart(10);
-        logger.info(`   ${rank}${symbol} change: ${change}  vol: ${vol}  score: ${s.score.toFixed(2)}`);
+        console.info(`   ${rank}${symbol} change: ${change}  vol: ${vol}  score: ${s.score.toFixed(2)}`);
       });
 
       return selected;

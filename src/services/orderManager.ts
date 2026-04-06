@@ -268,6 +268,7 @@ export class OrderManager {
           if (closedPosition) {
             // Remove from risk manager
             this.riskManager.closePosition(positionId, currentPrice, 0); // Fees already handled in paper service
+            await this.persistClosedTrade(closedPosition);
             return closedPosition;
           }
           return null;
@@ -280,11 +281,12 @@ export class OrderManager {
           const closeFee = position.quantity * currentPrice * 0.001;
           
           const closedPosition = this.riskManager.closePosition(positionId, currentPrice, closeFee);
-          
+
           if (closedPosition) {
             logger.info(`Position closed with P&L: $${closedPosition.pnl.toFixed(2)} (${closedPosition.pnlPercent.toFixed(2)}%)`);
+            await this.persistClosedTrade(closedPosition);
           }
-          
+
           return closedPosition;
         }
       } else {
@@ -305,17 +307,48 @@ export class OrderManager {
           quantity: closeQty, sideEffectType: 'AUTO_REPAY',
         });
 
-        // Close the position in risk manager
-        const actualClosePrice = closeOrder.price || currentPrice;
-        const closeFee = closeOrder.commission || 0;
+        // Close the position in risk manager.
+        // Binance MARKET orders return price:"0" (a truthy string) so using
+        // `closeOrder.price || currentPrice` gives 0. Use the weighted average
+        // fill price derived from cummulativeQuoteQty / executedQty instead.
+        const execQty = parseFloat(String(closeOrder.executedQty ?? 0));
+        const quoteQty = parseFloat(String((closeOrder as any).cummulativeQuoteQty ?? 0));
+        const fillPrice = execQty > 0 && quoteQty > 0 ? quoteQty / execQty : 0;
+        const actualClosePrice = fillPrice > 0 ? fillPrice : currentPrice;
+        const closeFee = parseFloat(String(closeOrder.commission ?? 0)) || 0;
         
         const closedPosition = this.riskManager.closePosition(positionId, actualClosePrice, closeFee);
-        
+
+        if (closedPosition) {
+          await this.persistClosedTrade(closedPosition);
+        }
+
         return closedPosition;
       }
     } catch (error) {
       logger.error('Error closing position:', { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       return null;
+    }
+  }
+
+  /**
+   * Persist the final state of a closed position to the database.
+   * Updates pnl, pnlPercent, exitPrice, closeTime, and status on the
+   * existing trade record that was inserted when the position opened.
+   */
+  private async persistClosedTrade(closed: TradePosition): Promise<void> {
+    if (!this.dbService) return;
+    try {
+      await this.dbService.updateTrade(closed.id, {
+        pnl: closed.pnl,
+        pnlPercent: closed.pnlPercent,
+        exitPrice: closed.currentPrice,
+        closeTime: closed.closeTime ?? Date.now(),
+        status: 'CLOSED',
+        fees: closed.fees,
+      });
+    } catch (err) {
+      logger.error('Failed to persist closed trade to database:', { error: err instanceof Error ? { stack: err.stack, code: (err as any).code } : { stack: String(err) } });
     }
   }
 
@@ -518,12 +551,14 @@ export class OrderManager {
   getOptimalOrderSize(_symbol: string, currentPrice: number, signal: any): number {
     const basePositionSize = this.riskManager.calculateMaxPositionSize(currentPrice);
 
-    const confidenceMultiplier = Math.min(signal.confidence / 100, 1);
-    const strengthMultiplier = Math.min(signal.strength / 100, 1);
+    if (basePositionSize <= 0) return 0;
+
+    const confidenceMultiplier = Math.min(Math.max(signal.confidence / 100, 0), 1);
+    const strengthMultiplier = Math.min(Math.max(signal.strength / 100, 0), 1);
 
     const adjustedSize = basePositionSize * confidenceMultiplier * strengthMultiplier * 0.8;
 
-    // Return at least 10% of base size so cheap tokens don't produce 0
+    // Floor at 10% of base size so cheap tokens don't produce 0, but never go negative
     return Math.max(adjustedSize, basePositionSize * 0.1);
   }
 
@@ -533,7 +568,6 @@ export class OrderManager {
   canOpenNewPosition(): boolean {
     const portfolio = this.riskManager.getPortfolio();
     const riskHealth = this.riskManager.getRiskHealth();
-    console.log(`[OrderManager] Checking if we can open new position: openPositions=${portfolio.openPositions.length}, riskStatus=${riskHealth.status}, availableBalance=${portfolio.availableBalance.toFixed(2)}`);
     return (
       portfolio.openPositions.length < config.trading.maxConcurrentTrades &&
       riskHealth.status !== 'CRITICAL' &&

@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import WebSocket from 'ws';
 import { logger } from './logger';
 import { BinanceService } from './binanceService';
-import { Candle, MarketData, TechnicalIndicators } from '../types';
+import { Candle, MarketData } from '../types';
 import config from '../config';
 import { CandleChartInterval_LT } from 'binance-api-node';
 
@@ -60,8 +60,6 @@ export class MarketDataService extends EventEmitter {
   // Configuration
   private readonly maxWindowSize = 500; // Maximum candles to keep in memory
   private readonly supportedIntervals: CandleChartInterval_LT[] = ['1m', '3m', '5m', '15m', '30m', '1h'];
-  private readonly reconnectDelay = 5000; // 5 seconds
-  private readonly maxReconnectAttempts = 5;
   private readonly dataValidationEnabled = true;
   
   // Monitoring
@@ -560,8 +558,6 @@ export class MarketDataService extends EventEmitter {
    * Handle incoming ticker data
    */
   private handleTickerData(symbol: string, marketData: MarketData): void {
-    const startTime = Date.now();
-    
     try {
       // Validate market data
       if (this.dataValidationEnabled && !this.validateMarketData(marketData)) {

@@ -20,7 +20,7 @@ const initPromise: Promise<void> = (async () => {
 /**
  * Initialize analytics service
  */
-router.use(async (req, res, next) => {
+router.use(async (_req, res, next) => {
   try {
     await initPromise;
     next();
@@ -626,7 +626,7 @@ router.get('/stats', async (req, res) => {
  * DELETE /api/analytics/cache
  * Clear analytics cache
  */
-router.delete('/cache', async (req, res) => {
+router.delete('/cache', async (_req, res) => {
   try {
     analyticsService.clearCache();
     res.json({ 

@@ -1,6 +1,6 @@
 import { TradeAnalyticsService } from './tradeAnalyticsService';
 import { DatabaseService } from '../database/databaseService';
-import { TradeAnalytics, AnalyticsReport } from './tradeAnalyticsService';
+import { AnalyticsReport } from './tradeAnalyticsService';
 import * as fs from 'fs';
 import * as path from 'path';
 import moment from 'moment';

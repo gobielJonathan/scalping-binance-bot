@@ -3,14 +3,11 @@ import {
   EmergencyStopTrigger, 
   EmergencyStopState, 
   EmergencyNotification,
-  TradePosition,
-  Portfolio,
   SystemHealthMetrics
 } from '../types';
 import { RiskManager } from './riskManager';
 import { OrderManager } from './orderManager';
 import logger, { toLogError } from './logger';
-import config from '../config';
 
 /**
  * Emergency Stop Service - Provides advanced circuit breaker and emergency shutdown capabilities
@@ -266,7 +263,7 @@ export class EmergencyStopService {
   /**
    * Check API health conditions
    */
-  private async checkApiHealth(condition: EmergencyStopCondition): Promise<{ shouldTrigger: boolean; currentValue: number; reason: string }> {
+  private async checkApiHealth(_condition: EmergencyStopCondition): Promise<{ shouldTrigger: boolean; currentValue: number; reason: string }> {
     // This would integrate with your BinanceService to check API health
     // For now, using placeholder logic
     let shouldTrigger = false;
@@ -294,7 +291,7 @@ export class EmergencyStopService {
   /**
    * Check for market anomalies
    */
-  private async checkMarketAnomalies(condition: EmergencyStopCondition): Promise<{ shouldTrigger: boolean; currentValue: number; reason: string }> {
+  private async checkMarketAnomalies(_condition: EmergencyStopCondition): Promise<{ shouldTrigger: boolean; currentValue: number; reason: string }> {
     // This would analyze recent price movements, volume spikes, etc.
     let shouldTrigger = false;
     let currentValue = 0;

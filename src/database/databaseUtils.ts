@@ -318,7 +318,7 @@ export class DatabaseUtils {
     return (annualizedReturn - riskFreeRate) / annualizedVolatility;
   }
 
-  private calculateSortinoRatio(returns: number[], volatility: number, targetReturn: number = 0): number {
+  private calculateSortinoRatio(returns: number[], _volatility: number, targetReturn: number = 0): number {
     const downside = returns.filter(r => r < targetReturn);
     if (downside.length === 0) return 0;
     

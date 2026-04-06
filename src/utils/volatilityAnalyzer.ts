@@ -58,8 +58,6 @@ export class VolatilityAnalyzer {
     }
 
     const prices = candles.map(c => c.close);
-    const highs = candles.map(c => c.high);
-    const lows = candles.map(c => c.low);
 
     // Calculate ATR
     const atrValues = TechnicalIndicators.calculateATR(candles, this.atrPeriod);
@@ -110,8 +108,6 @@ export class VolatilityAnalyzer {
     const currentEma20 = ema20[ema20.length - 1];
     const currentEma50 = ema50[ema50.length - 1];
 
-    // Analyze price movement patterns
-    const priceMovement = this.analyzePriceMovement(candles);
     const trendStrength = this.calculateTrendStrength(prices, ema20, ema50);
 
     let regimeType: MarketRegime['type'];
@@ -167,7 +163,7 @@ export class VolatilityAnalyzer {
   public detectVolatilityBreakouts(candles: Candle[]): VolatilityBreakout[] {
     const breakouts: VolatilityBreakout[] = [];
     const atrValues = TechnicalIndicators.calculateATR(candles, this.atrPeriod);
-    const prices = candles.map(c => c.close);
+
 
     if (atrValues.length < 20) return breakouts;
 
@@ -399,25 +395,7 @@ export class VolatilityAnalyzer {
     return denominator !== 0 ? numerator / denominator : 0;
   }
 
-  private analyzePriceMovement(candles: Candle[]): {
-    direction: 'up' | 'down' | 'sideways',
-    strength: number
-  } {
-    const prices = candles.map(c => c.close);
-    const recentPrices = prices.slice(-20);
-    
-    const firstPrice = recentPrices[0];
-    const lastPrice = recentPrices[recentPrices.length - 1];
-    const priceChange = (lastPrice - firstPrice) / firstPrice;
-    
-    const direction = priceChange > 0.02 ? 'up' : 
-                     priceChange < -0.02 ? 'down' : 'sideways';
-    const strength = Math.abs(priceChange) * 100;
-    
-    return { direction, strength };
-  }
-
-  private calculateTrendStrength(prices: number[], ema20: number[], ema50: number[]): number {
+  private calculateTrendStrength(_prices: number[], ema20: number[], ema50: number[]): number {
     if (ema20.length < 10 || ema50.length < 10) return 0;
     
     const recent20 = ema20.slice(-10);
@@ -461,7 +439,7 @@ export class VolatilityAnalyzer {
     return Math.min(confidence, 100);
   }
 
-  private estimateRegimeDuration(candles: Candle[], regime: MarketRegime['type']): number {
+  private estimateRegimeDuration(_candles: Candle[], regime: MarketRegime['type']): number {
     // Estimate duration in minutes based on historical patterns
     const durations: { [key: string]: number } = {
       'volatile': 30,

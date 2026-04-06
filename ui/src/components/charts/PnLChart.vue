@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { createChart, type IChartApi, type ISeriesApi } from 'lightweight-charts'
+import { createChart, AreaSeries, type IChartApi, type ISeriesApi } from 'lightweight-charts'
 import chartService, { type ChartTheme } from '@/services/chart'
 import {
   transformPnLData,
@@ -99,7 +99,7 @@ const initChart = () => {
 
     chart.value = chartInstance
 
-    const series = chartInstance.addSeries('Area' as any, {
+    const series = chartInstance.addSeries(AreaSeries, {
       lineColor: pnLColor.value,
       topColor: totalPnL.value >= 0 ? 'rgba(38, 194, 129, 0.2)' : 'rgba(231, 76, 60, 0.2)',
       bottomColor: 'rgba(0, 0, 0, 0)',

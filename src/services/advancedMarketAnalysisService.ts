@@ -1,7 +1,6 @@
 import { 
   MultiTimeframeAnalyzer, 
-  MultiTimeframeAnalysis, 
-  TimeframeSignal 
+  MultiTimeframeAnalysis 
 } from './multiTimeframeAnalyzer';
 import { 
   VolatilityAnalyzer, 
@@ -26,7 +25,6 @@ import {
   Candle, 
   TradingSignal, 
   TechnicalIndicators as TechnicalIndicatorsType,
-  SignalMetadata,
   MarketRegime as MarketRegimeType
 } from '../types';
 
@@ -356,7 +354,7 @@ export class AdvancedMarketAnalysisService {
     return this.weightedSignalCombination(signals);
   }
 
-  private createVolatilitySignal(strategy: VolatilityStrategy, symbol: string): TradingSignal {
+  private createVolatilitySignal(strategy: VolatilityStrategy, _symbol: string): TradingSignal {
     let type: 'BUY' | 'SELL' | 'HOLD' = 'HOLD';
     let strength = 50;
 
@@ -389,7 +387,7 @@ export class AdvancedMarketAnalysisService {
     };
   }
 
-  private createVolumeSignal(metrics: VolumeMetrics, symbol: string): TradingSignal {
+  private createVolumeSignal(metrics: VolumeMetrics, _symbol: string): TradingSignal {
     let strength = 50;
     let confidence = 60;
     let type: 'BUY' | 'SELL' | 'HOLD' = 'HOLD';
@@ -430,7 +428,7 @@ export class AdvancedMarketAnalysisService {
     };
   }
 
-  private createPatternSignal(patternAnalysis: any, symbol: string): TradingSignal {
+  private createPatternSignal(patternAnalysis: any, _symbol: string): TradingSignal {
     let type: 'BUY' | 'SELL' | 'HOLD' = 'HOLD';
     let strength = 50;
     let confidence = 60;
@@ -568,7 +566,7 @@ export class AdvancedMarketAnalysisService {
   private calculateRiskMetrics(
     candles: Candle[],
     volatilityStrategy: VolatilityStrategy,
-    signal: TradingSignal
+    _signal: TradingSignal
   ): {
     volatilityAdjustedSize: number,
     recommendedStopLoss: number,
@@ -576,7 +574,6 @@ export class AdvancedMarketAnalysisService {
     maxRisk: number
   } {
     const optimizedParams = this.volatilityAnalyzer.optimizeParametersForVolatility(candles);
-    const currentPrice = candles[candles.length - 1].close;
 
     return {
       volatilityAdjustedSize: optimizedParams.positionSize * volatilityStrategy.positionSizeMultiplier,

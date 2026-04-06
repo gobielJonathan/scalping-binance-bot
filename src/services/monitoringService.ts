@@ -233,8 +233,6 @@ class MonitoringService extends EventEmitter {
   private checkAlerts(metrics: PerformanceMetrics): void {
     if (!this.alertConfig.enabled) return;
 
-    const now = Date.now();
-
     // CPU usage alert
     if (metrics.cpuUsage > this.alertConfig.thresholds.cpuUsage) {
       this.triggerAlert('high_cpu_usage', `High CPU usage detected: ${metrics.cpuUsage.toFixed(2)}%`, {
@@ -335,7 +333,7 @@ class MonitoringService extends EventEmitter {
   // File system monitoring
   public async getDiskUsage(directory = './'): Promise<{ total: number; used: number; free: number }> {
     try {
-      const stats = await fs.promises.stat(directory);
+      await fs.promises.stat(directory);
       // This is a simplified implementation
       // In production, you might want to use a library like 'statvfs' for accurate disk space info
       return {

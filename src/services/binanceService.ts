@@ -578,7 +578,7 @@ export class BinanceService {
    * Get the available balance of an asset in the futures account.
    */
   async getIsolatedMarginBalance(
-    symbol: string,
+    _symbol: string,
     asset: string,
   ): Promise<number> {
     if (!this.client) throw new Error("Binance client not initialized");

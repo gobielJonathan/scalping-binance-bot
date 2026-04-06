@@ -345,8 +345,8 @@ onUnmounted(() => {
       </Card>
     </div>
 
-    <!-- ── Row 2: PnL Chart + Open Trades ───────────────────────────────── -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+    <!-- ── Row 2: PnL Chart (full width) ───────────────────────────────── -->
+    <div class="mb-4">
 
       <!-- PnL Chart -->
       <Card class="!bg-[#1a1f29] !border-[#323a47] !rounded-xl">
@@ -382,51 +382,6 @@ onUnmounted(() => {
             class="flex items-center justify-center h-[220px] text-[#6e7684] text-sm"
           >
             No trade history to plot
-          </div>
-        </template>
-      </Card>
-
-      <!-- Open Trades -->
-      <Card class="!bg-[#1a1f29] !border-[#323a47] !rounded-xl">
-        <template #header>
-          <div class="px-4 pt-4">
-            <span class="text-sm font-semibold text-[#f0f2f5]">Open Trades</span>
-          </div>
-        </template>
-        <template #content>
-          <div v-if="loading" class="flex flex-col gap-2">
-            <Skeleton v-for="n in 3" :key="n" height="2.5rem" class="rounded-lg" />
-          </div>
-          <div v-else-if="openPositions.length === 0" class="text-[#6e7684] text-sm text-center py-6">
-            No open positions
-          </div>
-          <div v-else class="flex flex-col gap-2 max-h-[240px] overflow-y-auto pr-1">
-            <div
-              v-for="pos in openPositions"
-              :key="pos.symbol"
-              class="flex items-center justify-between py-2 px-3 rounded-lg bg-[#252d3a] border border-[#323a47]"
-            >
-              <div class="flex items-center gap-2 min-w-0">
-                <span class="font-semibold text-sm text-white truncate">{{ pos.symbol }}</span>
-                <span class="text-[#a0a6b2] text-xs">×{{ pos.quantity }}</span>
-              </div>
-              <div class="flex flex-col items-end gap-0.5 text-xs shrink-0">
-                <span class="text-[#a0a6b2]">Open: <span class="text-white font-medium">${{ fmt(pos.entryPrice) }}</span></span>
-                <span class="text-[#a0a6b2]">
-                  SL:
-                  <span class="font-medium" :class="pos.stopLoss ? 'text-[#e74c3c]' : 'text-[#6e7684]'">
-                    {{ pos.stopLoss ? '$' + fmt(pos.stopLoss) : '—' }}
-                  </span>
-                </span>
-                <span class="text-[#f39c12] font-medium">{{ pos.leverage }}× Margin</span>
-                <span class="text-[#e74c3c] font-medium">Liq: ${{ fmt(pos.liquidationPrice) }}</span>
-              </div>
-              <div class="shrink-0 ml-3">
-                <span :class="['text-sm font-bold', pos.pnl >= 0 ? 'text-[#26c281]' : 'text-[#e74c3c]']">
-                  {{ pos.pnl >= 0 ? '+' : '' }}${{ fmt(pos.pnl) }}
-                </span>
-              </div>
-            </div>
           </div>
         </template>
       </Card>

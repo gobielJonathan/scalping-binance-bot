@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { createChart, type IChartApi, type ISeriesApi } from 'lightweight-charts'
+import { createChart, CandlestickSeries, HistogramSeries, LineSeries, type IChartApi, type ISeriesApi } from 'lightweight-charts'
 import chartService, { type ChartTheme } from '@/services/chart'
 import {
   transformMovingAverageData,
@@ -92,13 +92,13 @@ const initChart = () => {
 
     chart.value = chartInstance
 
-    const candleSeriesApi = chartInstance.addSeries('Candlestick' as any, {
+    const candleSeriesApi = chartInstance.addSeries(CandlestickSeries, {
       ...chartService.getCandlestickSeriesOptions(chartTheme.value),
     } as any)
     candlestickSeries.value = candleSeriesApi
 
     if (props.showVolume) {
-      const volSeriesApi = chartInstance.addSeries('Histogram' as any, {
+      const volSeriesApi = chartInstance.addSeries(HistogramSeries, {
         color: '#26c281',
         scaleMargins: { top: 0.8, bottom: 0 },
       } as any)
@@ -106,14 +106,14 @@ const initChart = () => {
     }
 
     if (props.showMA) {
-      const ma20SeriesApi = chartInstance.addSeries('Line' as any, {
+      const ma20SeriesApi = chartInstance.addSeries(LineSeries, {
         color: '#f39c12',
         lineWidth: 1,
         title: 'MA20',
       } as any)
       ma20Series.value = ma20SeriesApi
 
-      const ma50SeriesApi = chartInstance.addSeries('Line' as any, {
+      const ma50SeriesApi = chartInstance.addSeries(LineSeries, {
         color: '#9b59b6',
         lineWidth: 1,
         title: 'MA50',

@@ -79,6 +79,7 @@ class CryptoScalpingBot {
 
     if (services.database) {
       this.database = services.database;
+      this.orderManager.setDatabaseService(services.database);
       logger.info("Database service connected");
     }
   }
@@ -577,7 +578,11 @@ class CryptoScalpingBot {
       }
 
       if (signal.confidence > 50) {
-        if (this.orderManager.canOpenNewPosition()) {
+        const portfolio = this.riskManager.getPortfolio();
+        const hasOpenPositionForPair = portfolio.openPositions.some(p => p.symbol === pair);
+        if (hasOpenPositionForPair) {
+          logger.info(`Signal skipped (position already open): ${signal.type} ${pair}`);
+        } else if (this.orderManager.canOpenNewPosition()) {
           await this.executeSignal(pair, signal, marketData);
         } else {
           logger.info(`Signal skipped (max positions reached): ${signal.type} ${pair}`);

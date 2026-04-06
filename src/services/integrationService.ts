@@ -1,7 +1,7 @@
 import { PortfolioTracker, PortfolioMetrics, PortfolioAlert } from './portfolioTracker';
-import { RiskManager, RiskMetrics, LossLimit, PerformanceMetrics } from './riskManager';
+import { RiskManager, RiskMetrics, PerformanceMetrics } from './riskManager';
 import { OrderManager } from './orderManager';
-import { MarketData, TradePosition } from '../types';
+import { MarketData } from '../types';
 import { logger } from './logger';
 
 export interface DashboardUpdate {
@@ -63,7 +63,6 @@ export interface BenchmarkData {
 export class IntegrationService {
   private portfolioTracker: PortfolioTracker;
   private riskManager: RiskManager;
-  private orderManager: OrderManager;
   private notifications: AlertNotification[] = [];
   private lastDashboardUpdate: number = 0;
   private updateInterval: number = 30000; // 30 seconds
@@ -73,11 +72,10 @@ export class IntegrationService {
   constructor(
     portfolioTracker: PortfolioTracker,
     riskManager: RiskManager,
-    orderManager: OrderManager
+    _orderManager: OrderManager
   ) {
     this.portfolioTracker = portfolioTracker;
     this.riskManager = riskManager;
-    this.orderManager = orderManager;
     
     // Initialize benchmark data
     this.initializeBenchmarkData();

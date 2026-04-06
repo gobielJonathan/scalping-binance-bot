@@ -193,7 +193,7 @@ export class PaperTradingValidator {
   /**
    * Get live trades for comparison (mock data if no live trades available)
    */
-  private async getLiveTrades(days: number): Promise<LiveTradeData[]> {
+  private async getLiveTrades(_days: number): Promise<LiveTradeData[]> {
     // If Binance service is available and we have API access, try to get real data
     if (this.binanceService && config.binance.apiKey) {
       try {
@@ -343,7 +343,7 @@ export class PaperTradingValidator {
   /**
    * Simulate paper execution for validation
    */
-  private async simulatePaperExecution(symbol: string, quantity: number, marketData: MarketData): Promise<any> {
+  private async simulatePaperExecution(_symbol: string, quantity: number, marketData: MarketData): Promise<any> {
     // This would use the actual PaperTradingService
     return {
       price: marketData.price * 1.0002, // Small slippage
@@ -356,7 +356,7 @@ export class PaperTradingValidator {
   /**
    * Get order book data for validation
    */
-  private async getOrderBookData(symbol: string): Promise<any> {
+  private async getOrderBookData(_symbol: string): Promise<any> {
     // Mock order book data
     return {
       bids: [[49995, 100], [49990, 200]],
@@ -367,7 +367,7 @@ export class PaperTradingValidator {
   /**
    * Calculate theoretical live execution
    */
-  private calculateTheoreticalExecution(quantity: number, marketData: MarketData, orderBookData: any): any {
+  private calculateTheoreticalExecution(quantity: number, marketData: MarketData, _orderBookData: any): any {
     // Simplified calculation
     return {
       price: marketData.price * 1.0001,

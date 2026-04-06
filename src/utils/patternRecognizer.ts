@@ -71,14 +71,10 @@ export interface MarketStructure {
 }
 
 export class PatternRecognizer {
-  private lookbackPeriods: number;
   private minPatternLength: number;
-  private maxPatternLength: number;
 
-  constructor(lookbackPeriods: number = 100, minPatternLength: number = 3, maxPatternLength: number = 20) {
-    this.lookbackPeriods = lookbackPeriods;
+  constructor(_lookbackPeriods: number = 100, minPatternLength: number = 3, _maxPatternLength: number = 20) {
     this.minPatternLength = minPatternLength;
-    this.maxPatternLength = maxPatternLength;
   }
 
   /**
@@ -136,9 +132,6 @@ export class PatternRecognizer {
    */
   public identifyScalpingPatterns(candles: Candle[]): ScalpingPattern[] {
     const patterns: ScalpingPattern[] = [];
-    const highs = candles.map(c => c.high);
-    const lows = candles.map(c => c.low);
-    const closes = candles.map(c => c.close);
 
     for (let i = this.minPatternLength; i < candles.length - this.minPatternLength; i++) {
       // Flag patterns
@@ -176,7 +169,6 @@ export class PatternRecognizer {
     const levels: SupportResistanceLevel[] = [];
     const highs = candles.map(c => c.high);
     const lows = candles.map(c => c.low);
-    const volumes = candles.map(c => c.volume);
     const currentPrice = candles[candles.length - 1].close;
 
     // Find swing highs and lows
@@ -293,9 +285,6 @@ export class PatternRecognizer {
    * Analyze market structure
    */
   public analyzeMarketStructure(candles: Candle[]): MarketStructure {
-    const highs = candles.map(c => c.high);
-    const lows = candles.map(c => c.low);
-    
     const swingHighs = this.findSwingHighs(candles);
     const swingLows = this.findSwingLows(candles);
 
@@ -505,8 +494,6 @@ export class PatternRecognizer {
     const firstBearish = first.close < first.open;
     const secondSmall = Math.abs(second.close - second.open) < Math.abs(first.close - first.open) * 0.5;
     const thirdBullish = third.close > third.open;
-    const gapDown = second.high < first.low;
-    const gapUp = third.open > second.high;
 
     if (firstBearish && secondSmall && thirdBullish && third.close > (first.open + first.close) / 2) {
       return {
@@ -656,7 +643,6 @@ export class PatternRecognizer {
     if (highSlope >= 0 || lowSlope <= 0) return null;
 
     // Convergence rate: slopes should have similar magnitude
-    const convergence = Math.abs(highSlope) + Math.abs(lowSlope);
     const balance = Math.min(Math.abs(highSlope), Math.abs(lowSlope)) / Math.max(Math.abs(highSlope), Math.abs(lowSlope));
     if (balance < 0.3) return null; // Too lopsided — not a pennant
 
@@ -828,7 +814,6 @@ export class PatternRecognizer {
     const normLow = lowSlope / price;
 
     // Both slopes must go in the same direction AND converge
-    const slopeDiff = Math.abs(normHigh - normLow);
     const sameDirection = (normHigh > 0 && normLow > 0) || (normHigh < 0 && normLow < 0);
     if (!sameDirection) return null;
 
@@ -1043,7 +1028,7 @@ export class PatternRecognizer {
     return touchScore + volumeScore + ageScore;
   }
 
-  private calculateBreakoutProbability(candles: Candle[], level: number, type: 'support' | 'resistance'): number {
+  private calculateBreakoutProbability(candles: Candle[], level: number, _type: 'support' | 'resistance'): number {
     const currentPrice = candles[candles.length - 1].close;
     const distance = Math.abs(currentPrice - level) / level;
     
@@ -1139,7 +1124,6 @@ export class PatternRecognizer {
   private detectStructureBreak(candles: Candle[], highs: SupportResistanceLevel[], lows: SupportResistanceLevel[]): boolean {
     if (candles.length < 20) return false;
     
-    const currentPrice = candles[candles.length - 1].close;
     const recentHigh = Math.max(...candles.slice(-10).map(c => c.high));
     const recentLow = Math.min(...candles.slice(-10).map(c => c.low));
     

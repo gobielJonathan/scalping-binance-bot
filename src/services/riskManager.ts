@@ -1,6 +1,6 @@
 import { TradePosition, Portfolio, OrderRequest, MarketData, TradingSignal } from '../types';
 import config from '../config';
-import { calculatePnL, generateTradeId } from '../utils/helpers';
+import { calculatePnL } from '../utils/helpers';
 import { logger } from './logger';
 
 export interface PositionSizingParams {
@@ -63,10 +63,7 @@ export class RiskManager {
   private positionSizingParams: PositionSizingParams;
   private lossLimits: { [key: string]: LossLimit };
   private performanceMetrics: PerformanceMetrics;
-  private volatilityHistory: Map<string, number[]> = new Map();
-  private priceHistory: Map<string, number[]> = new Map();
   private tradeHistory: TradePosition[] = [];
-  private dailyLossLimitBreached: boolean = false;
   private warningsIssued: Set<string> = new Set();
 
   constructor(initialBalance: number) {
@@ -291,12 +288,15 @@ export class RiskManager {
    * Calculate fixed position size based on risk per trade
    */
   private calculateFixedPositionSize(currentPrice: number): number {
-    const riskAmount = this.portfolio.totalBalance * config.trading.riskPerTrade;
+    const balance = this.portfolio.totalBalance;
+    if (balance <= 0 || currentPrice <= 0) return 0;
+
+    const riskAmount = balance * config.trading.riskPerTrade;
     const stopLossDistance = currentPrice * config.trading.stopLossPercentage;
-    
+
     if (stopLossDistance === 0) return 0;
-    
-    return riskAmount / stopLossDistance;
+
+    return Math.max(0, riskAmount / stopLossDistance);
   }
 
   /**
@@ -596,11 +596,22 @@ export class RiskManager {
   syncBalance(realUsdtBalance: number): void {
     const lockedBalance = this.portfolio.lockedBalance;
     this.portfolio.availableBalance = Math.max(0, realUsdtBalance - lockedBalance);
-    this.portfolio.totalBalance = realUsdtBalance + this.portfolio.totalPnl;
-    logger.info('Balance synced with exchange', { 
+    this.portfolio.totalBalance = realUsdtBalance;
+
+    // Recalibrate the daily baseline and loss limits to the real exchange balance
+    // so the dollar/percentage limits are not based on the stale .env INITIAL_CAPITAL.
+    this.dailyStartBalance = realUsdtBalance;
+    this.portfolio.dailyPnl = 0;
+    this.portfolio.dailyPnlPercent = 0;
+    this.lossLimits['daily_dollar'].value = realUsdtBalance * config.trading.dailyLossLimit;
+    this.lossLimits['daily_percentage'].value = config.trading.dailyLossLimit * 100;
+    this.warningsIssued.clear();
+
+    logger.info('Balance synced with exchange', {
       totalBalance: this.portfolio.totalBalance,
       availableBalance: this.portfolio.availableBalance,
-     });
+      dailyDollarLimit: this.lossLimits['daily_dollar'].value.toFixed(2),
+    });
   }
 
   /**
@@ -861,10 +872,13 @@ export class RiskManager {
       
       switch (limit.type) {
         case 'DOLLAR':
-          currentValue = Math.abs(this.portfolio.dailyPnl);
+          // Only count actual losses — a profit should never trigger the loss limit
+          currentValue = this.portfolio.dailyPnl < 0 ? Math.abs(this.portfolio.dailyPnl) : 0;
           break;
         case 'PERCENTAGE':
-          currentValue = Math.abs((this.portfolio.dailyPnl / this.dailyStartBalance) * 100);
+          currentValue = this.portfolio.dailyPnl < 0
+            ? Math.abs((this.portfolio.dailyPnl / this.dailyStartBalance) * 100)
+            : 0;
           break;
         case 'DRAWDOWN':
           currentValue = this.calculateCurrentDrawdown();
@@ -873,7 +887,6 @@ export class RiskManager {
       
       // Check if limit is exceeded
       if (currentValue >= limitValue) {
-        this.dailyLossLimitBreached = true;
         return {
           allowed: false,
           reason: `${limit.type.toLowerCase()} loss limit exceeded (${currentValue.toFixed(2)} >= ${limitValue.toFixed(2)})`,
@@ -1027,7 +1040,7 @@ export class RiskManager {
   /**
    * Calculate symbol correlation risk
    */
-  private calculateSymbolCorrelationRisk(symbol: string): number {
+  private calculateSymbolCorrelationRisk(_symbol: string): number {
     // Simplified correlation risk calculation
     // In a full implementation, this would check correlations with existing positions
     const existingSymbols = this.portfolio.openPositions.map(p => p.symbol);

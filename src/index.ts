@@ -288,6 +288,9 @@ class CryptoScalpingBot {
         this.volatilityRefreshTimer = null;
       }
 
+      // Close all live mark price WebSocket streams before general cleanup
+      this.orderManager.stopAllMarkPriceStreams();
+
       listenerCleanup.cleanupAll();
 
       // Stop MarketDataService
@@ -394,7 +397,11 @@ class CryptoScalpingBot {
         }
 
         // Monitor existing positions
-        this.orderManager.monitorPositions(Array.from(this.currentMarketDataMap.values()));
+        // In live mode, per-symbol WS mark price streams handle monitoring;
+        // polling is only used in paper mode.
+        if (config.trading.mode === 'paper') {
+          this.orderManager.monitorPositions(Array.from(this.currentMarketDataMap.values()));
+        }
 
         // Generate trading signals for each pair — always process all pairs
         // so signals are broadcast and logged for every symbol.

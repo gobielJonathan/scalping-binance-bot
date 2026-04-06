@@ -1,10 +1,5 @@
-import Binance, {
-  CandleChartInterval_LT,
-  UserDataStreamEvent,
-  NewOrderSpot,
-  NewFuturesOrder,
-  FuturesBalanceResult,
-} from "binance-api-node";
+import Binance from "binance-api-node";
+import type { CleanupFn } from "binance-api-node";
 import WebSocket from "ws";
 import config from "../config/index";
 import { TradingPair, Candle, OrderRequest, MarketData } from "../types/index";
@@ -271,12 +266,12 @@ export class BinanceService {
   async getBalance(asset?: string): Promise<BinanceBalance[]> {
     const futuresBalances = await this.client.futuresAccountBalance();
     const balances = futuresBalances
-      .filter((b: FuturesBalanceResult) =>
+      .filter((b: any) =>
         asset
           ? b.asset === asset
           : parseFloat(b.availableBalance) > 0 || parseFloat(b.balance) > 0,
       )
-      .map((b: FuturesBalanceResult) => ({
+      .map((b: any) => ({
         asset: b.asset,
         free: parseFloat(b.availableBalance),
         locked: parseFloat(b.balance) - parseFloat(b.availableBalance),
@@ -291,7 +286,7 @@ export class BinanceService {
   }
 
   // Order Management Methods
-  async getOpenOrders(symbol?: string): Promise<BinanceOrder[]> {
+  async getOpenOrders(symbol?: string): Promise<any[]> {
     if (!this.client) {
       throw new Error("Binance client not initialized");
     }
@@ -437,7 +432,7 @@ export class BinanceService {
         }),
       };
 
-      const result = await this.client.order(binanceOrder as NewOrderSpot);
+      const result = await this.client.order(binanceOrder as any);
       logger.info("Order placed successfully", {
         source: "BinanceService",
         context: {
@@ -546,7 +541,7 @@ export class BinanceService {
       const params = {
         symbol: orderRequest.symbol,
         side: orderRequest.side,
-        type: orderRequest.type as NewFuturesOrder["type"],
+        type: orderRequest.type as any,
         quantity: quantityStr,
         ...(isClose && { reduceOnly: "true" as const }),
         ...(priceStr && { price: priceStr }),
@@ -554,9 +549,9 @@ export class BinanceService {
         ...(orderRequest.timeInForce && {
           timeInForce: orderRequest.timeInForce,
         }),
-      } as NewFuturesOrder;
+      };
 
-      const result = await this.client.futuresOrder(params);
+      const result = await this.client.futuresOrder(params as any) as any;
       logger.info("Futures order placed", {
         source: "BinanceService",
         context: {
@@ -585,7 +580,7 @@ export class BinanceService {
     if (!this.client) throw new Error("Binance client not initialized");
     await this.checkRateLimit();
     try {
-      const balances: FuturesBalanceResult[] =
+      const balances: any[] =
         await this.client.futuresAccountBalance();
       const entry = balances.find((b) => b.asset === asset);
       return parseFloat(entry?.availableBalance ?? "0");
@@ -664,12 +659,12 @@ export class BinanceService {
       const params = {
         symbol,
         side,
-        type: "STOP_MARKET" as NewFuturesOrder["type"],
+        type: "STOP_MARKET" as any,
         stopPrice: stopPriceStr,
         closePosition: "true",
-      } as NewFuturesOrder;
+      };
 
-      const result = await this.client.futuresOrder(params);
+      const result = await this.client.futuresOrder(params as any);
       logger.info("Futures stop-market order placed", {
         source: "BinanceService",
         context: { symbol, side, stopPrice: stopPriceStr },
@@ -745,12 +740,12 @@ export class BinanceService {
       const params = {
         symbol,
         side,
-        type: "TAKE_PROFIT_MARKET" as NewFuturesOrder["type"],
+        type: "TAKE_PROFIT_MARKET" as any,
         stopPrice: tpPriceStr,
         closePosition: "true",
-      } as unknown as NewFuturesOrder;
+      };
 
-      const result = await this.client.futuresOrder(params);
+      const result = await this.client.futuresOrder(params as any);
       logger.info("Futures take-profit-market order placed", {
         source: "BinanceService",
         context: { symbol, side, takeProfitPrice: tpPriceStr },
@@ -812,7 +807,7 @@ export class BinanceService {
 
   async getKlines(
     symbol: string,
-    interval: CandleChartInterval_LT,
+    interval: string,
     limit: number = 500,
   ): Promise<Candle[]> {
     await this.checkRateLimit();
@@ -941,7 +936,7 @@ export class BinanceService {
 
   async startKlineStream(
     symbol: string,
-    interval: CandleChartInterval_LT,
+    interval: string,
     callback: (data: Candle) => void,
   ): Promise<void> {
     const streamName = `${symbol.toLowerCase()}@kline_${interval}`;
@@ -987,7 +982,7 @@ export class BinanceService {
   }
 
   async startUserDataStream(
-    callback: (data: UserDataStreamEvent) => void,
+    callback: (data: any) => void,
   ): Promise<void> {
     try {
       const cleanup = await this.client.ws.user(callback);
@@ -1045,6 +1040,26 @@ export class BinanceService {
       );
       return () => {};
     }
+  }
+
+  /**
+   * Subscribe to per-symbol mark price updates via the futures WebSocket.
+   * Fires `onPrice` on each ~1s tick with the current mark price.
+   * Returns a cleanup function that closes the stream.
+   */
+  startMarkPriceStream(symbol: string, onPrice: (price: number) => void): CleanupFn {
+    logger.info(`Subscribing to mark price stream: ${symbol}@markPrice@1s`, {
+      source: 'BinanceService',
+    });
+    return this.client.ws.futuresCustomSubStream(
+      `${symbol.toLowerCase()}@markPrice@1s`,
+      (event: any) => {
+        // Raw event from futuresCustomSubStream (untransformed):
+        // { e: 'markPriceUpdate', E: timestamp, s: symbol, p: markPrice (string) }
+        const price = parseFloat(event.p ?? '0');
+        if (price > 0) onPrice(price);
+      },
+    );
   }
 
   private async createWebSocketConnection(
@@ -1292,7 +1307,7 @@ export class BinanceService {
   async getServerTime(): Promise<number> {
     try {
       const response = await this.client.time();
-      return response;
+      return response.serverTime;
     } catch (error) {
       logger.error("Failed to get server time", {
         source: "BinanceService",

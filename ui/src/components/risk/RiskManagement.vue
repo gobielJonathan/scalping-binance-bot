@@ -18,7 +18,7 @@ interface RiskLimit {
 interface PositionRisk {
   positionId: string
   symbol: string
-  riskScore: number
+  risk number
   var: number // Value at Risk
   maxLoss: number
   correlation: number

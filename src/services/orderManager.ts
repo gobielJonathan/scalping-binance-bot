@@ -17,6 +17,8 @@ export class OrderManager {
   private paperTradingMode: boolean;
   private binanceService: BinanceService; // Will be injected when available
   private dbService: DatabaseService | null = null;
+  /** Per-symbol mark price WS cleanup functions (live mode only) */
+  private markPriceStreams: Map<string, () => void> = new Map();
 
   constructor(riskManager: RiskManager) {
     this.riskManager = riskManager;
@@ -220,10 +222,8 @@ export class OrderManager {
         
         // Add to risk manager
         this.riskManager.addPosition(position);
-
-        // Place stop loss and take profit orders on the exchange
-        await this.placeStopLossOrder(position);
-        await this.placeTakeProfitOrder(position);
+        // Subscribe to real-time mark price ticks for monitoring
+        this.subscribeToMarkPrice(position.symbol);
 
         return position;
       }
@@ -318,6 +318,14 @@ export class OrderManager {
         const closeFee = parseFloat(String(closeOrder.commission ?? 0)) || 0;
         
         const closedPosition = this.riskManager.closePosition(positionId, actualClosePrice, closeFee);
+
+        // Unsubscribe mark price stream if no positions remain for this symbol
+        const remaining = this.riskManager.getPortfolio().openPositions.filter(
+          p => p.symbol === position.symbol,
+        );
+        if (remaining.length === 0) {
+          this.unsubscribeFromMarkPrice(position.symbol);
+        }
 
         if (closedPosition) {
           await this.persistClosedTrade(closedPosition);
@@ -543,6 +551,94 @@ export class OrderManager {
       this.cutLoss(position.id, currentPrice, 'Emergency stop loss – P&L exceeded stop-loss threshold');
       return;
     }
+  }
+
+  // ── WebSocket Mark Price Subscription ─────────────────────────────────────
+
+  /**
+   * Subscribe to per-symbol mark price ticks (live mode only).
+   * One stream per symbol — deduplicated if called multiple times.
+   */
+  private subscribeToMarkPrice(symbol: string): void {
+    if (this.paperTradingMode || !this.binanceService) return;
+    if (this.markPriceStreams.has(symbol)) return;
+
+    const cleanup = this.binanceService.startMarkPriceStream(symbol, price => {
+      this.handleMarkPrice(symbol, price);
+    });
+    this.markPriceStreams.set(symbol, cleanup);
+    logger.info(`[WS] Subscribed to mark price stream: ${symbol}@markPrice@1s`, {
+      source: 'OrderManager',
+    });
+  }
+
+  /**
+   * Process a mark price tick: update positions and trigger exits if needed.
+   */
+  private handleMarkPrice(symbol: string, price: number): void {
+    const positions = this.riskManager.getPortfolio().openPositions.filter(
+      p => p.symbol === symbol,
+    );
+    if (positions.length === 0) return;
+
+    for (const position of positions) {
+      this.riskManager.updatePosition(position.id, price);
+
+      // Gap detection: price jumped far past stop-loss (flash crash scenario)
+      const gapThreshold = 2;
+      const stopDistance = Math.abs(position.entryPrice - position.stopLoss);
+      const priceDistance = Math.abs(price - position.stopLoss);
+      const isPriceGap =
+        this.riskManager.shouldTriggerStopLoss(position.id, price) &&
+        priceDistance > stopDistance * gapThreshold;
+
+      if (isPriceGap) {
+        logger.warn(
+          `[UNEXPECTED CONDITION] Price gap detected for ${position.symbol}: ` +
+          `current $${price.toFixed(4)} is far past stop-loss $${position.stopLoss.toFixed(4)}`,
+        );
+        this.cutLoss(position.id, price, 'Unexpected price gap beyond stop-loss');
+        continue;
+      }
+
+      if (this.riskManager.shouldTriggerStopLoss(position.id, price)) {
+        this.cutLoss(position.id, price, 'Stop loss triggered');
+        continue;
+      }
+
+      if (this.riskManager.shouldTriggerTakeProfit(position.id, price)) {
+        logger.info(`Take profit triggered for position ${position.id}`);
+        this.closePosition(position.id, 'Take profit triggered');
+        continue;
+      }
+
+      this.checkScalpingExit(position, price);
+    }
+  }
+
+  /**
+   * Unsubscribe a symbol's mark price stream and remove it from the map.
+   */
+  private unsubscribeFromMarkPrice(symbol: string): void {
+    const cleanup = this.markPriceStreams.get(symbol);
+    if (cleanup) {
+      cleanup();
+      this.markPriceStreams.delete(symbol);
+      logger.info(`[WS] Unsubscribed from mark price stream: ${symbol}`, {
+        source: 'OrderManager',
+      });
+    }
+  }
+
+  /**
+   * Close all open mark price streams. Called on bot shutdown.
+   */
+  stopAllMarkPriceStreams(): void {
+    for (const [, cleanup] of this.markPriceStreams) {
+      cleanup();
+    }
+    this.markPriceStreams.clear();
+    logger.info('[WS] All mark price streams closed', { source: 'OrderManager' });
   }
 
   /**

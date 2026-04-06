@@ -371,8 +371,11 @@ export class OrderManager {
 
       if (stopResult) {
         logger.info(`Stop loss order placed for position ${position.id} at $${position.stopLoss}`);
-      } else {
+      } else if (!this.binanceService.hasAlgoOrderRestriction(position.symbol)) {
+        // Only warn if this is genuinely unexpected (not a known algo-order-only symbol)
         logger.warn(`No exchange stop order for ${position.symbol} — software monitoring active at $${position.stopLoss}`);
+      } else {
+        logger.debug(`${position.symbol} uses software stop-loss (Algo Order API required) at $${position.stopLoss}`);
       }
     } catch (error) {
       logger.error(`Failed to place stop loss for position ${position.id}:`, { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
@@ -393,8 +396,11 @@ export class OrderManager {
 
       if (tpResult) {
         logger.info(`Take profit order placed for position ${position.id} at $${position.takeProfit}`);
-      } else {
+      } else if (!this.binanceService.hasAlgoOrderRestriction(position.symbol)) {
+        // Only warn if this is genuinely unexpected (not a known algo-order-only symbol)
         logger.warn(`No exchange take-profit order for ${position.symbol} — software monitoring active at $${position.takeProfit}`);
+      } else {
+        logger.debug(`${position.symbol} uses software take-profit (Algo Order API required) at $${position.takeProfit}`);
       }
     } catch (error) {
       logger.error(`Failed to place take profit for position ${position.id}:`, { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
@@ -548,18 +554,16 @@ export class OrderManager {
   /**
    * Get optimal order size for a trading signal
    */
-  getOptimalOrderSize(_symbol: string, currentPrice: number, signal: any): number {
-    const basePositionSize = this.riskManager.calculateMaxPositionSize(currentPrice);
+  getOptimalOrderSize(symbol: string, currentPrice: number, signal: any): number {
+    // Use the same calculation as validateOrder (calculateOptimalPositionSize) so
+    // the requested size always matches what the risk manager considers optimal,
+    // eliminating the "X% above optimal" warning caused by diverging size methods.
+    const optimalSize = this.riskManager.calculateOptimalPositionSize(symbol, currentPrice, signal);
 
-    if (basePositionSize <= 0) return 0;
+    if (optimalSize <= 0) return 0;
 
-    const confidenceMultiplier = Math.min(Math.max(signal.confidence / 100, 0), 1);
-    const strengthMultiplier = Math.min(Math.max(signal.strength / 100, 0), 1);
-
-    const adjustedSize = basePositionSize * confidenceMultiplier * strengthMultiplier * 0.8;
-
-    // Floor at 10% of base size so cheap tokens don't produce 0, but never go negative
-    return Math.max(adjustedSize, basePositionSize * 0.1);
+    // Apply a 0.8 safety margin (20% buffer below the optimal ceiling)
+    return optimalSize * 0.8;
   }
 
   /**

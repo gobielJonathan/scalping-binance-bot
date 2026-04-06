@@ -8,6 +8,7 @@ import { Candle, MarketData, TradingSignal } from "./types";
 import { BinanceService, DatabaseService, logger, PairSelectorService } from "./services";
 import { PatternRecognizer } from "./utils/patternRecognizer";
 import { OrderType } from "binance-api-node";
+import { listenerCleanup } from "./utils/listenerCleanup";
 
 /**
  * Main trading bot application
@@ -18,7 +19,7 @@ class CryptoScalpingBot {
   private orderManager: OrderManager;
   private marketDataService: MarketDataService | null = null;
   private dashboard: DashboardService;
-  private patternRecognizer: PatternRecognizer = new PatternRecognizer();
+  private patternRecognizer: PatternRecognizer;
   private isRunning: boolean = false;
   private marketDataCache: Map<string, Candle[]> = new Map();
   // Map is the single source of truth for market data — O(1) read/write by symbol
@@ -30,7 +31,6 @@ class CryptoScalpingBot {
   private database: any = null;
   private pairSelectorService: PairSelectorService | null = null;
   private volatilityRefreshTimer: NodeJS.Timeout | null = null;
-  private futuresUserStreamCleanup: (() => void) | null = null;
 
   constructor() {
     logger.info("Initializing Crypto Scalping Bot...");
@@ -40,6 +40,7 @@ class CryptoScalpingBot {
     this.riskManager = new RiskManager(config.trading.initialCapital);
     this.orderManager = new OrderManager(this.riskManager);
     this.dashboard = new DashboardService();
+    this.patternRecognizer = new PatternRecognizer();
 
     logger.info(`Trading Mode: ${config.trading.mode.toUpperCase()}`);
     logger.info(`Initial Capital: $${config.trading.initialCapital}`);
@@ -248,12 +249,13 @@ class CryptoScalpingBot {
         // Start real-time balance sync via Futures user data stream.
         // Falls back to REST polling (syncBalanceFromExchange) if stream is unavailable.
         try {
-          this.futuresUserStreamCleanup = await this.binanceService.startFuturesUserDataStream(
+          const cleanup = await this.binanceService.startFuturesUserDataStream(
             (usdtWalletBalance: number) => {
               this.riskManager.syncBalance(usdtWalletBalance);
               logger.debug(`[WS] Balance synced: $${usdtWalletBalance.toFixed(2)} USDT`);
             },
           );
+          listenerCleanup.registerCleanup(cleanup);
         } catch (err) {
           logger.warn(`[WS] Could not start futures user data stream: ${String(err)}`);
         }
@@ -286,11 +288,7 @@ class CryptoScalpingBot {
         this.volatilityRefreshTimer = null;
       }
 
-      // Close futures user data stream
-      if (this.futuresUserStreamCleanup) {
-        this.futuresUserStreamCleanup();
-        this.futuresUserStreamCleanup = null;
-      }
+      listenerCleanup.cleanupAll();
 
       // Stop MarketDataService
       if (this.marketDataService) {
@@ -730,37 +728,6 @@ class CryptoScalpingBot {
     }
   }
 
-  /**
-   * Get bot status
-   */
-  getStatus(): any {
-    const status: any = {
-      running: this.isRunning,
-      mode: config.trading.mode,
-      pairs: config.trading.pairs,
-      portfolio: this.riskManager.getPortfolio(),
-      riskHealth: this.riskManager.getRiskHealth(),
-      services: {
-        binance: !!this.binanceService,
-        logger: !!this.logger,
-        database: !!this.database,
-        dashboard: config.dashboard.enabled,
-        marketDataService: !!this.marketDataService,
-      },
-    };
-
-    // Add MarketDataService specific status if available
-    if (this.marketDataService) {
-      status.marketDataStatus = {
-        streamMetrics: this.marketDataService.getStreamMetrics(),
-        connectionStatus: this.marketDataService.getConnectionStatus(),
-        activeSymbols: config.trading.pairs,
-        supportedIntervals: ["1m", "3m", "5m", "15m", "30m", "1h"],
-      };
-    }
-
-    return status;
-  }
 }
 
 // Main execution

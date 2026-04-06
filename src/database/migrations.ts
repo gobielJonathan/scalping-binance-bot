@@ -500,7 +500,6 @@ async function runMigrationCLI() {
 }
 
 // Export for programmatic use
-export default DatabaseMigrationService;
 
 // Run migration if called directly
 if (require.main === module) {

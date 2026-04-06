@@ -341,5 +341,3 @@ if (require.main === module) {
     .then(() => paperTradingScenario())
     .catch(console.error);
 }
-
-export { databaseExamples, paperTradingScenario };

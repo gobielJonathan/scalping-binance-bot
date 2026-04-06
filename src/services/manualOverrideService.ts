@@ -916,5 +916,3 @@ export class ManualOverrideService {
     this.overrideCommands.clear();
   }
 }
-
-export default ManualOverrideService;

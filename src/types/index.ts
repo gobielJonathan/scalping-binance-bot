@@ -214,22 +214,6 @@ export interface RiskManagement {
   emergencyStopEnabled: boolean;
 }
 
-export interface TradingConfig {
-  mode: 'paper' | 'live';
-  pairs: string[];
-  timeframes: string[];
-  indicators: {
-    emaShort: number;
-    emaLong: number;
-    rsiPeriod: number;
-    macdFast: number;
-    macdSlow: number;
-    macdSignal: number;
-    bollingerPeriod: number;
-    bollingerDeviation: number;
-  };
-  risk: RiskManagement;
-}
 
 export interface MarketData {
   symbol: string;
@@ -243,31 +227,6 @@ export interface MarketData {
   timestamp: number;
 }
 
-export interface BacktestResult {
-  startDate: number;
-  endDate: number;
-  totalTrades: number;
-  winningTrades: number;
-  losingTrades: number;
-  winRate: number;
-  totalReturn: number;
-  totalReturnPercent: number;
-  maxDrawdown: number;
-  maxDrawdownPercent: number;
-  sharpeRatio: number;
-  sortinioRatio: number;
-  calmarRatio: number;
-  avgWin: number;
-  avgLoss: number;
-  profitFactor: number;
-  avgTradeDuration: number;
-  trades: TradePosition[];
-  equity: Array<{ timestamp: number; balance: number; drawdown: number }>;
-  systemQuality: number;
-  expectancy: number;
-  consecutiveWins: number;
-  consecutiveLosses: number;
-}
 
 export interface DashboardData {
   portfolio: Portfolio;
@@ -284,14 +243,6 @@ export interface DashboardData {
 }
 
 export type LogLevel = 'error' | 'warn' | 'info' | 'debug';
-
-export interface LogEntry {
-  timestamp: number;
-  level: LogLevel;
-  message: string;
-  data?: any;
-  source?: string;
-}
 
 export interface LogContext {
   tradeId?: string;

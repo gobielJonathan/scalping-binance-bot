@@ -14,4 +14,4 @@ export const isArray = (val: any): boolean => {
 
 export const isObj = (val: any): boolean =>{ 
     return toString.call(val) === '[object Object]';
-}
+} 

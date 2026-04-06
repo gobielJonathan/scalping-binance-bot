@@ -627,5 +627,3 @@ Manual intervention may be required before resuming trading.
     this.stopAllMonitoring();
   }
 }
-
-export default EmergencyStopService;

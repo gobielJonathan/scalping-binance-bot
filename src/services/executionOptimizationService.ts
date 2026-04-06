@@ -707,5 +707,3 @@ export class ExecutionOptimizationService {
     return this.executionMetrics.slice(-limit);
   }
 }
-
-export default ExecutionOptimizationService;

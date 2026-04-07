@@ -268,7 +268,7 @@ export class OrderManager {
           if (closedPosition) {
             // Remove from risk manager
             this.riskManager.closePosition(positionId, currentPrice, 0); // Fees already handled in paper service
-            await this.persistClosedTrade(closedPosition);
+            await this.persistClosedTrade(closedPosition, reason);
             return closedPosition;
           }
           return null;
@@ -284,7 +284,7 @@ export class OrderManager {
 
           if (closedPosition) {
             logger.info(`Position closed with P&L: $${closedPosition.pnl.toFixed(2)} (${closedPosition.pnlPercent.toFixed(2)}%)`);
-            await this.persistClosedTrade(closedPosition);
+            await this.persistClosedTrade(closedPosition, reason);
           }
 
           return closedPosition;
@@ -328,7 +328,7 @@ export class OrderManager {
         }
 
         if (closedPosition) {
-          await this.persistClosedTrade(closedPosition);
+          await this.persistClosedTrade(closedPosition, reason);
         }
 
         return closedPosition;
@@ -341,10 +341,10 @@ export class OrderManager {
 
   /**
    * Persist the final state of a closed position to the database.
-   * Updates pnl, pnlPercent, exitPrice, closeTime, and status on the
-   * existing trade record that was inserted when the position opened.
+   * Updates pnl, pnlPercent, exitPrice, closeTime, status, and closeReason (notes)
+   * on the existing trade record that was inserted when the position opened.
    */
-  private async persistClosedTrade(closed: TradePosition): Promise<void> {
+  private async persistClosedTrade(closed: TradePosition, closeReason: string = 'Manual close'): Promise<void> {
     if (!this.dbService) return;
     try {
       await this.dbService.updateTrade(closed.id, {
@@ -354,6 +354,7 @@ export class OrderManager {
         closeTime: closed.closeTime ?? Date.now(),
         status: 'CLOSED',
         fees: closed.fees,
+        notes: closeReason,
       });
     } catch (err) {
       logger.error('Failed to persist closed trade to database:', { error: err instanceof Error ? { stack: err.stack, code: (err as any).code } : { stack: String(err) } });

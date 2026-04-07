@@ -105,13 +105,13 @@ class CryptoScalpingBot {
     this.marketDataService.on("candleUpdate", (update) => {
       try {
         // Update local cache
-        const candles = this.marketDataService!.getCandles(update.symbol, "1m");
+        const candles = this.marketDataService!.getCandles(update.symbol, "5m");
         this.marketDataCache.set(update.symbol, candles);
 
         if (this.logger) {
           this.logger.debug("Candle update received", {
             symbol: update.symbol,
-            interval: "1m",
+            interval: "5m",
             candleCount: candles.length,
           });
         }

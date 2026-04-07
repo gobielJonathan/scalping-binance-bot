@@ -194,7 +194,7 @@ export class ScalpingStrategy {
 
     // Minimum threshold for scalping signals — require sufficient confluence
     // across multiple indicators before committing to a trade
-    const signal = strength >= 60 && confidence >= 55;
+    const signal = strength >= 50 && confidence > 40;
     
     return {
       signal,
@@ -272,7 +272,7 @@ export class ScalpingStrategy {
 
     // Minimum threshold for scalping signals — require sufficient confluence
     // across multiple indicators before committing to a trade
-    const signal = strength >= 60 && confidence >= 55;
+    const signal = strength >= 50 && confidence > 40;
     
     return {
       signal,

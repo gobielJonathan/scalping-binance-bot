@@ -609,7 +609,7 @@ class CryptoScalpingBot {
         return;
       }
 
-      if (signal.confidence > 65) {
+      if (signal.confidence > 50) {
         const portfolio = this.riskManager.getPortfolio();
         const hasOpenPositionForPair = portfolio.openPositions.some(p => p.symbol === pair);
         if (hasOpenPositionForPair) {

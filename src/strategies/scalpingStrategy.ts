@@ -192,8 +192,9 @@ export class ScalpingStrategy {
       reasons.push('Minor price decline');
     }
 
-    // Minimum threshold for scalping signals
-    const signal = strength >= 50 && confidence >= 40;
+    // Minimum threshold for scalping signals — require sufficient confluence
+    // across multiple indicators before committing to a trade
+    const signal = strength >= 60 && confidence >= 55;
     
     return {
       signal,
@@ -269,8 +270,9 @@ export class ScalpingStrategy {
       reasons.push('Minor price increase');
     }
 
-    // Minimum threshold for scalping signals
-    const signal = strength >= 50 && confidence >= 40;
+    // Minimum threshold for scalping signals — require sufficient confluence
+    // across multiple indicators before committing to a trade
+    const signal = strength >= 60 && confidence >= 55;
     
     return {
       signal,

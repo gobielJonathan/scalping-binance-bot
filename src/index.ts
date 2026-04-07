@@ -31,6 +31,11 @@ class CryptoScalpingBot {
   private database: any = null;
   private pairSelectorService: PairSelectorService | null = null;
   private volatilityRefreshTimer: NodeJS.Timeout | null = null;
+  // Re-entry cooldown: track last close time per symbol to avoid fee-burning
+  // rapid re-entries immediately after a position is closed
+  private symbolCooldowns: Map<string, number> = new Map();
+  private openPositionSymbols: Set<string> = new Set();
+  private readonly SYMBOL_COOLDOWN_MS = 90_000; // 90 seconds after each close
 
   constructor() {
     logger.info("Initializing Crypto Scalping Bot...");
@@ -522,6 +527,28 @@ class CryptoScalpingBot {
       let candles: Candle[] = [];
       let marketData: MarketData | undefined;
 
+      // ── Re-entry cooldown: detect close events and enforce minimum wait ──
+      const portfolio = this.riskManager.getPortfolio();
+      const hasOpenPos = portfolio.openPositions.some(p => p.symbol === pair);
+
+      // Position just closed this cycle → record close timestamp
+      if (this.openPositionSymbols.has(pair) && !hasOpenPos) {
+        this.symbolCooldowns.set(pair, Date.now());
+        this.openPositionSymbols.delete(pair);
+        logger.info(`Cooldown started for ${pair} (${this.SYMBOL_COOLDOWN_MS / 1000}s)`);
+      }
+      if (hasOpenPos) {
+        this.openPositionSymbols.add(pair);
+      }
+
+      // Skip if within cooldown window to prevent immediate fee-burning re-entry
+      const lastClose = this.symbolCooldowns.get(pair) ?? 0;
+      if (Date.now() - lastClose < this.SYMBOL_COOLDOWN_MS) {
+        const remainingSec = Math.ceil((this.SYMBOL_COOLDOWN_MS - (Date.now() - lastClose)) / 1000);
+        logger.info(`Signal skipped (cooldown ${remainingSec}s remaining): ${pair}`);
+        return;
+      }
+
       // Get data from MarketDataService if available, otherwise use cache
       if (this.marketDataService) {
         candles = this.marketDataService.getCandles(pair, "5m", 500);
@@ -582,7 +609,7 @@ class CryptoScalpingBot {
         return;
       }
 
-      if (signal.confidence > 50) {
+      if (signal.confidence > 65) {
         const portfolio = this.riskManager.getPortfolio();
         const hasOpenPositionForPair = portfolio.openPositions.some(p => p.symbol === pair);
         if (hasOpenPositionForPair) {
@@ -595,7 +622,7 @@ class CryptoScalpingBot {
         return;
       }
 
-      logger.info(`Signal skipped (low confidence ${signal.confidence}%): ${signal.type} ${pair}`);
+      logger.info(`Signal skipped (low confidence ${signal.confidence}%, need >65%): ${signal.type} ${pair}`);
     } catch (error) {
       logger.error(`Error processing signal for ${pair}:`, { error: error instanceof Error ? { stack: error.stack, code: (error as any).code } : { stack: String(error) } });
       if (this.logger) {

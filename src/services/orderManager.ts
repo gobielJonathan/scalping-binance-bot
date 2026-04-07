@@ -529,17 +529,29 @@ export class OrderManager {
   private checkScalpingExit(position: TradePosition, currentPrice: number): void {
     const positionAge = Date.now() - position.openTime;
     const ageInMinutes = positionAge / (1000 * 60);
-    
-    // Exit after 5 minutes if still in profit (scalping behavior)
-    if (ageInMinutes > 5 && position.pnl > 0) {
-      logger.info(`Scalping time-based exit for position ${position.id} after ${ageInMinutes.toFixed(1)} minutes`);
+
+    // Binance futures taker fee rate (0.04% per side = 0.08% round-trip)
+    const TAKER_FEE_RATE = 0.0004;
+    const notionalValue = position.entryPrice * position.quantity;
+    // Estimated exit fee not yet deducted from position.pnl
+    const estimatedExitFee = notionalValue * TAKER_FEE_RATE;
+    // Fee-adjusted P&L: subtract the pending exit fee to avoid exiting at a
+    // price that looks profitable on mark price but is actually a net loss
+    const feeAdjustedPnl = position.pnl - estimatedExitFee;
+    const feeAdjustedPnlPercent = (feeAdjustedPnl / notionalValue) * 100;
+
+    // Exit after 4 minutes if net profit after fees is positive
+    if (ageInMinutes > 4 && feeAdjustedPnl > 0) {
+      logger.info(`Scalping time-based exit for position ${position.id} after ${ageInMinutes.toFixed(1)} minutes (net: ${feeAdjustedPnlPercent.toFixed(2)}%)`);
       this.closePosition(position.id, 'Scalping time-based exit');
       return;
     }
 
-    // Exit if profit exceeds 0.7% (good scalping profit)
-    if (position.pnlPercent > 0.7) {
-      logger.info(`Scalping profit target hit for position ${position.id}: ${position.pnlPercent.toFixed(2)}%`);
+    // Exit if fee-adjusted profit exceeds 1.5% — high enough bar to clear
+    // round-trip taker fees (~0.08%) plus typical market-order slippage on
+    // low-priced tokens, ensuring every exit is actually profitable
+    if (feeAdjustedPnlPercent > 1.5) {
+      logger.info(`Scalping profit target hit for position ${position.id}: ${feeAdjustedPnlPercent.toFixed(2)}% (fee-adjusted)`);
       this.closePosition(position.id, 'Scalping profit target');
       return;
     }

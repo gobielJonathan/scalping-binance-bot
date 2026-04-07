@@ -348,7 +348,13 @@ export class RiskManager {
     
     // Apply min/max constraints
     const minSize = (this.positionSizingParams.minPositionSize || 0) / currentPrice;
-    const maxSize = (this.positionSizingParams.maxPositionSize || this.portfolio.totalBalance * 0.25) / currentPrice;
+    // Cap at the LOWER of the static initialCapital-based max and 20% of the
+    // current balance.  As the real balance shrinks, position sizes scale down
+    // proportionally instead of staying pinned to the original initial capital.
+    const staticMaxDollar = this.positionSizingParams.maxPositionSize ?? Infinity;
+    const dynamicMaxDollar = this.portfolio.totalBalance * 0.2;
+    const maxDollar = Math.min(staticMaxDollar, dynamicMaxDollar);
+    const maxSize = maxDollar / currentPrice;
     
     return Math.max(minSize, Math.min(adjustedSize, maxSize));
   }
@@ -481,8 +487,11 @@ export class RiskManager {
 
     // Update portfolio
     const positionValue = position.quantity * position.entryPrice;
-    this.portfolio.lockedBalance -= positionValue;
-    this.portfolio.availableBalance += positionValue + position.pnl;
+    // Use the same margin formula as addPosition (notional / leverage) so that
+    // lockedBalance returns to zero correctly and availableBalance stays accurate
+    const marginReleased = positionValue / (position.leverage ?? config.trading.leverage);
+    this.portfolio.lockedBalance -= marginReleased;
+    this.portfolio.availableBalance += marginReleased + position.pnl;
     this.portfolio.totalBalance += position.pnl;
     this.portfolio.riskExposure -= positionValue;
     this.portfolio.totalPnl += position.pnl;

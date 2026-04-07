@@ -377,8 +377,10 @@ export const useTradesStore = defineStore('trades', () => {
       })
 
       if (response.success && response.data) {
-        trades.value = response.data.items
-        totalTrades.value = response.data.total
+        // Backend returns { trades, pagination } — map to expected shape
+        const data = response.data as any
+        trades.value = data.items ?? data.trades ?? []
+        totalTrades.value = data.total ?? data.pagination?.total ?? 0
         lastUpdated.value = Date.now()
       } else {
         errorTrades.value = new ApiError(

@@ -200,7 +200,8 @@ const exportData = () => {
     pnl: trade.pnl || 0,
     pnlPercent: trade.pnlPercent || 0,
     commission: trade.commission,
-    duration: calculateDuration(trade)
+    duration: calculateDuration(trade),
+    notes: trade.notes || ''
   }))
 
   if (exportFormat.value === 'csv') {
@@ -433,6 +434,7 @@ onMounted(() => {
                 P&L % {{ getSortIcon('pnlPercent') }}
               </th>
               <th class="numeric">Duration</th>
+              <th class="notes-th">Close Reason</th>
             </tr>
           </thead>
           <tbody>
@@ -485,6 +487,12 @@ onMounted(() => {
               <!-- Duration -->
               <td class="numeric-cell duration-cell">
                 {{ calculateDuration(trade) }}
+              </td>
+
+              <!-- Notes / Close Reason -->
+              <td class="notes-cell">
+                <span v-if="trade.notes" class="notes-badge" :title="trade.notes">{{ trade.notes }}</span>
+                <span v-else class="notes-empty">—</span>
               </td>
             </tr>
           </tbody>
@@ -839,6 +847,34 @@ onMounted(() => {
 .duration-cell {
   font-family: var(--trading-font-mono);
   font-size: 0.8rem;
+}
+
+.notes-th {
+  min-width: 160px;
+}
+
+.notes-cell {
+  max-width: 220px;
+}
+
+.notes-badge {
+  display: inline-block;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px var(--trading-spacing-sm);
+  border-radius: var(--trading-radius-sm);
+  background: rgba(52, 152, 219, 0.08);
+  border: 1px solid rgba(52, 152, 219, 0.2);
+  color: var(--trading-text-secondary);
+  font-size: 0.775rem;
+  cursor: default;
+  vertical-align: middle;
+}
+
+.notes-empty {
+  color: var(--trading-text-tertiary);
 }
 
 .pagination {

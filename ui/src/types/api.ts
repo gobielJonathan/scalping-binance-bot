@@ -90,6 +90,7 @@ export interface Trade {
   profit?: number // Alias for pnl
   profitPercent?: number // Alias for pnlPercent
   executedAt: string
+  notes?: string
 }
 
 export interface TradeHistory {

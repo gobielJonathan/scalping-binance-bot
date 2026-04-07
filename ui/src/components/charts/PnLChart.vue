@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { createChart, AreaSeries, type IChartApi, type ISeriesApi } from 'lightweight-charts'
 import chartService, { type ChartTheme } from '@/services/chart'
 import {
   transformPnLData,
   debounce,
-  getChartDimensions,
   getPnLColor,
   formatPrice,
 } from '@/utils/chart'
@@ -42,6 +41,7 @@ const isInitialized = ref(false)
 const hasError = ref(false)
 const errorMessage = ref('')
 const selectedInterval = ref(props.interval)
+let resizeObserver: ResizeObserver | null = null
 
 const chartHeight = computed(() => {
   const height = props.height
@@ -88,13 +88,23 @@ const pnLColor = computed(() => {
   return getPnLColor(totalPnL.value)
 })
 
+const resolveHeight = (): number => {
+  if (!containerRef.value) return typeof props.height === 'number' ? props.height : 300
+  const h = containerRef.value.offsetHeight
+  if (h > 0) return h
+  // offsetHeight is 0 when parent hasn't resolved height yet (e.g. 100% on flex child)
+  // fall back to the numeric prop value or a sensible default
+  return typeof props.height === 'number' ? props.height : 300
+}
+
 const initChart = () => {
   if (!containerRef.value || isInitialized.value) return
 
   try {
-    const dimensions = getChartDimensions(containerRef.value)
+    const width = containerRef.value.offsetWidth || 400
+    const height = resolveHeight()
     const chartInstance = createChart(containerRef.value, {
-      ...chartService.getDefaultChartOptions(dimensions.width, dimensions.height, chartTheme.value),
+      ...chartService.getDefaultChartOptions(width, height, chartTheme.value),
     } as any)
 
     chart.value = chartInstance
@@ -143,14 +153,33 @@ const setupEventListeners = () => {
 
   const handleResize = debounce(() => {
     if (!containerRef.value || !chart.value) return
-    const dimensions = getChartDimensions(containerRef.value)
     chart.value.applyOptions({
-      width: dimensions.width,
-      height: dimensions.height,
+      width: containerRef.value.offsetWidth || 400,
+      height: resolveHeight(),
     })
   }, 300)
 
   window.addEventListener('resize', handleResize)
+
+  // ResizeObserver catches height resolution that happens after mount
+  // (e.g. parent flex/grid layout settling, CSS transitions)
+  if (typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => {
+      if (!chart.value || !containerRef.value) return
+      const h = containerRef.value.offsetHeight
+      if (h > 0) {
+        chart.value.applyOptions({
+          width: containerRef.value.offsetWidth || 400,
+          height: h,
+        })
+        chart.value.timeScale().fitContent()
+      }
+    })
+    if (containerRef.value) {
+      resizeObserver.observe(containerRef.value)
+    }
+  }
+
   onUnmounted(() => {
     window.removeEventListener('resize', handleResize)
   })
@@ -169,6 +198,8 @@ const handleError = (error: Error) => {
 }
 
 const cleanup = () => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
   if (chart.value) {
     chart.value.remove()
     chart.value = null
@@ -189,12 +220,15 @@ watch(() => props.theme, () => {
 })
 watch(() => props.height, () => {
   if (!containerRef.value || !chart.value) return
-  const dimensions = getChartDimensions(containerRef.value)
-  chart.value.applyOptions({ height: dimensions.height })
+  chart.value.applyOptions({ height: resolveHeight() })
 })
 
 onMounted(() => {
-  initChart()
+  // nextTick ensures the component's own DOM (height: 100% div) has been
+  // inserted and the parent layout has had one pass to resolve dimensions
+  nextTick(() => {
+    initChart()
+  })
 })
 
 onUnmounted(() => {

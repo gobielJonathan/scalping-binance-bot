@@ -1,6 +1,3 @@
-import simpleLogger from 'simple-node-logger';
-import fs from 'fs';
-import config from '../config';
 import { LogContext, TradeLogEntry } from '../types';
 import { isObj } from '../utils/is';
 
@@ -22,28 +19,7 @@ interface LogMetadata {
 }
 
 class Logger {
-  private simpleLogger: any;
   private errorCount: Map<string, number> = new Map();
-
-  constructor() {
-    this.ensureLogDirectory();
-    this.initializeLogger();
-  }
-
-  private ensureLogDirectory(): void {
-    const logDir = config.logging?.directory || 'logs';
-    if (!fs.existsSync(logDir)) {
-      fs.mkdirSync(logDir, { recursive: true });
-    }
-  }
-
-  private initializeLogger(): void {
-    this.simpleLogger = simpleLogger.createSimpleFileLogger({
-      logFilePath: 'logs/bot.log',
-      timestampFormat: 'YYYY-MM-DD HH:mm:ss.SSS',
-      level: 'info'
-    });
-  }
 
   private formatMessage(message: string, metadata?: LogMetadata): string {
     let formattedMessage = message;
@@ -100,19 +76,16 @@ class Logger {
       errorMsg += `\nStack: ${metadata.error.stack}`;
     }
     
-    this.simpleLogger.error(errorMsg);
     console.error('❌', errorMsg);
   }
 
   warn(message: string, metadata?: LogMetadata): void {
     const formattedMessage = this.formatMessage(message, metadata);
-    this.simpleLogger.warn(formattedMessage);
     console.warn('⚠️', formattedMessage);
   }
 
   info(message: string, metadata?: LogMetadata): void {
     const formattedMessage = this.formatMessage(message, metadata);
-    this.simpleLogger.info(formattedMessage);
     if (this.shouldPrintToConsole(formattedMessage)) {
       console.log('ℹ️', formattedMessage);
     }
@@ -120,8 +93,7 @@ class Logger {
 
   debug(message: string, metadata?: LogMetadata): void {
     const formattedMessage = this.formatMessage(message, metadata);
-    this.simpleLogger.debug(formattedMessage);
-    // debug messages are written to file only — never printed to console
+    // debug messages are silenced — never printed to console
   }
 
   // Specialized logging methods
